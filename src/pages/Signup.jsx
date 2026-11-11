@@ -1,12 +1,14 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext.jsx';
+import StudioArt from "../components/StudioArt.jsx";
+import PasswordField from "../components/PasswordField.jsx";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Signup() {
   const { signup } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: '', email: '', password: '' });
-  const [error, setError] = useState('');
+  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
@@ -14,14 +16,14 @@ export default function Signup() {
   const onSubmit = async (e) => {
     e.preventDefault();
     if (form.password.length < 6) {
-      setError('Kata laluan mesti sekurang-kurangnya 6 aksara.');
+      setError("Kata laluan mesti sekurang-kurangnya 6 aksara.");
       return;
     }
-    setError('');
+    setError("");
     setBusy(true);
     try {
       await signup(form);
-      navigate('/dashboard', { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -31,27 +33,64 @@ export default function Signup() {
 
   return (
     <div className="auth-page">
+      <div className="auth-cloud cloud-one" aria-hidden="true" />
+      <div className="auth-cloud cloud-two" aria-hidden="true" />
       <form className="auth-card" onSubmit={onSubmit}>
-        <h1>Daftar Akaun</h1>
-        {error && <div className="alert alert-error">{error}</div>}
-        <label>
-          Nama
-          <input type="text" name="name" value={form.name} onChange={onChange} required autoFocus />
-        </label>
-        <label>
-          E-mel
-          <input type="email" name="email" value={form.email} onChange={onChange} required />
-        </label>
-        <label>
-          Kata Laluan
-          <input type="password" name="password" value={form.password} onChange={onChange} required minLength={6} />
-        </label>
-        <button className="btn btn-primary btn-block" disabled={busy}>
-          {busy ? 'Sedang mendaftar…' : 'Daftar'}
-        </button>
-        <p className="auth-alt">
-          Sudah ada akaun? <Link to="/login">Log Masuk</Link>
-        </p>
+        <div className="auth-welcome">
+          <span className="eyebrow">✦ RUANG KREATIF CIKGU</span>
+          <h1>
+            Mulakan perjalanan
+            <br />
+            kreatif cikgu.
+          </h1>
+          <p>Satu akaun, pelbagai kemungkinan untuk pengajaran.</p>
+          <StudioArt />
+        </div>
+        <div className="auth-fields">
+          {error && (
+            <div role="alert" className="alert alert-error">
+              {error}
+            </div>
+          )}
+          <label>
+            Nama
+            <input
+              type="text"
+              name="name"
+              value={form.name}
+              onChange={onChange}
+              required
+              autoComplete="name"
+            />
+          </label>
+          <label>
+            E-mel
+            <input
+              type="email"
+              name="email"
+              value={form.email}
+              onChange={onChange}
+              required
+              autoComplete="email"
+              placeholder="cikgu@sekolah.edu.my"
+            />
+          </label>
+          <PasswordField
+            value={form.password}
+            onChange={onChange}
+            autoComplete="new-password"
+            minLength={6}
+          />
+          <button className="btn btn-primary btn-block" disabled={busy}>
+            {busy ? "Sedang mendaftar…" : "Cipta akaun percuma →"}
+          </button>
+          <div className="auth-divider">
+            <span>Selamat · Mudah · Untuk cikgu</span>
+          </div>
+          <p className="auth-alt">
+            Sudah ada akaun? <Link to="/login">Log Masuk</Link>
+          </p>
+        </div>
       </form>
     </div>
   );
