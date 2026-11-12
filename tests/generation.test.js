@@ -208,8 +208,18 @@ function fixture(options = {}) {
     }),
     rpc: async (name, args) => {
       calls.push([name, args]);
+      if (name === "check_generation_rate")
+        return options.rateError
+          ? { error: { code: options.rateError } }
+          : { data: true };
+      if (name === "begin_model_attempt")
+        return options.budgetError
+          ? { error: { code: options.budgetError } }
+          : { data: true };
       if (name === "reserve_generation")
-        return options.quotaError ? { error: { code: "GURUQ" } } : { data: 4 };
+        return options.quotaError
+          ? { error: { code: options.quotaCode || "GURUQ" } }
+          : { data: 4 };
       return { data: null };
     },
   };
@@ -250,6 +260,7 @@ function fixture(options = {}) {
   const handler = createGenerationHandler({
     createClient,
     fetchImpl,
+    recordEventImpl: async () => {},
     env: {
       SUPABASE_URL: "https://example.invalid",
       SUPABASE_SERVICE_ROLE_KEY: "test-only",
@@ -506,4 +517,44 @@ test("complete structured RPH is finalized", async () => {
   });
   await f.run();
   assert.ok(f.res.chunks.join("").includes("event: done"));
+});
+
+test("per-account rate limit has retry header and never reserves quota", async () => {
+  const f = fixture({ rateError: "GURUR" });
+  await f.run();
+  assert.equal(f.res.statusCode, 429);
+  assert.equal(f.res.headers["Retry-After"], "60");
+  assert.ok(!f.calls.some((c) => c[0] === "reserve_generation"));
+});
+test("concurrency limit is a retryable 429", async () => {
+  const f = fixture({ quotaError: true, quotaCode: "GURUC" });
+  await f.run();
+  assert.equal(f.res.statusCode, 429);
+  assert.equal(f.res.jsonValue.code, "CONCURRENCY_LIMIT");
+  assert.ok(!f.calls.some((c) => c[0] === "fetch"));
+});
+test("global daily attempt budget denies model calls and refunds reservation", async () => {
+  const f = fixture({ budgetError: "GURUB" });
+  await f.run();
+  assert.equal(f.res.statusCode, 503);
+  assert.equal(f.res.jsonValue.code, "DAILY_SERVICE_LIMIT");
+  assert.ok(!f.calls.some((c) => c[0] === "fetch"));
+  assert.deepEqual(
+    f.calls
+      .filter((c) => c[0] === "finish_generation")
+      .map((c) => c[1].p_success),
+    [false],
+  );
+});
+test("each fallback is independently admitted by model budget", async () => {
+  const f = fixture({ fallback: true });
+  await f.run();
+  assert.equal(f.calls.filter((c) => c[0] === "begin_model_attempt").length, 2);
+});
+test("maintenance prevents generation before a quota reservation", async () => {
+  const f = fixture({ quotaError: true, quotaCode: "GURUM" });
+  await f.run();
+  assert.equal(f.res.statusCode, 503);
+  assert.equal(f.res.jsonValue.code, "MAINTENANCE");
+  assert.ok(!f.calls.some((c) => c[0] === "fetch"));
 });

@@ -72,6 +72,7 @@ export default function Signup() {
               onChange={onChange}
               required
               autoComplete="name"
+              maxLength={100}
             />
           </label>
           <label>
@@ -92,6 +93,10 @@ export default function Signup() {
             autoComplete="new-password"
             minLength={8}
           />
+          <p className="context-note">
+            Sila baca <Link to="/privacy">notis privasi</Link> sebelum
+            mendaftar. Jangan gunakan data sensitif pelajar dalam input AI.
+          </p>
           <button className="btn btn-primary btn-block" disabled={busy}>
             {busy ? "Sedang mendaftar…" : "Cipta akaun percuma →"}
           </button>

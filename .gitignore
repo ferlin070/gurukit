@@ -3,3 +3,6 @@ dist/
 .env.local
 .vercel
 vls.json
+
+.backups/
+*.backup.enc

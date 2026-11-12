@@ -1,4 +1,6 @@
 import { lazy, Suspense } from "react";
+const Privacy = lazy(() => import("./pages/Privacy.jsx"));
+const Support = lazy(() => import("./pages/Support.jsx"));
 const RphTemplate = lazy(() => import("./pages/RphTemplate.jsx"));
 const QuestionBank = lazy(() => import("./pages/QuestionBank.jsx"));
 import { TeachingProvider } from "./context/TeachingContext.jsx";
@@ -30,6 +32,8 @@ export default function App() {
           <Routes>
             <Route element={<Layout />}>
               <Route path="/" element={<Landing />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/support" element={<Support />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/forgot-password" element={<PasswordRecovery />} />

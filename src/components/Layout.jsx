@@ -114,8 +114,6 @@ export default function Layout() {
                 ▧ <span>Templat RPH</span>
               </NavLink>
               <NavLink to="/documents">Dokumen saya</NavLink>
-              <NavLink to="/question-bank">Bank & JSU</NavLink>
-              <NavLink to="/rph-template">Templat RPH</NavLink>
               <NavLink to="/settings">Profil MRSM</NavLink>
             </nav>
           )}
@@ -124,6 +122,8 @@ export default function Layout() {
         <footer className="footer">
           <span>✦ GuruKit</span> Dibuat untuk guru Malaysia{" "}
           <span>Bahasa Melayu · KSSM · DSKP</span>
+          <Link to="/privacy">Privasi</Link>
+          <Link to="/support">Bantuan</Link>
         </footer>
       </div>
     </div>

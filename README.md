@@ -31,3 +31,5 @@ Pustaka dokumen menggunakan RLS pemilik. Guru perlu menyemak fakta dan standard 
 Lihat [audit MRSM](docs/AUDIT-MRSM.md) untuk penemuan, bukti pengujian dan batasan. Deploy melalui push ke `main` → Vercel; sahkan deployment bagi commit tersebut READY sebelum melaporkan selesai.
 
 Pakej Word, templat RPH maktab dan bank soalan/JSU: lihat [panduan penggunaan](docs/TEACHING-PACK.md). Untuk pemasangan baharu, jalankan juga migrasi `supabase/migrations/20261112060000_teaching_pack.sql` selepas migrasi keselamatan MRSM.
+
+Operasi production, had trafik, backup aplikasi dan prasyarat SMTP: [runbook production](docs/PRODUCTION-RUNBOOK.md).

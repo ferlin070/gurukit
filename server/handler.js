@@ -1,7 +1,6 @@
+import { recordEvent, rateResponse } from "./operational.js";
 import { parseGeneratedBank } from "../src/lib/question-bank.js";
-import {
-  parseGeneratedRph,
-} from "../src/lib/rph-template.js";
+import { parseGeneratedRph } from "../src/lib/rph-template.js";
 import { randomUUID } from "node:crypto";
 import {
   prepareGeneration,
@@ -15,6 +14,8 @@ const MODELS = [
   "gemini-3.1-flash-lite",
 ];
 const MESSAGES = {
+  MODEL_BUDGET_UNAVAILABLE:
+    "Kawalan perkhidmatan AI tidak dapat disahkan. Cuba lagi sebentar.",
   INVALID_BANK_OUTPUT:
     "Struktur soalan atau skema tidak sepadan dengan JSU. Cuba kurangkan bilangan soalan dan jana semula.",
   INVALID_RPH_OUTPUT: "Struktur templat RPH tidak lengkap. Sila jana semula.",
@@ -34,10 +35,36 @@ export function createGenerationHandler({
   env = process.env,
   uuid = randomUUID,
   timeoutMs = 50000,
+  recordEventImpl = recordEvent,
 }) {
   return async function handler(req, res) {
-    const bad = (status, error, code) =>
+    const started = Date.now();
+    let admin = null,
+      actorId = null,
+      logRequestId = null,
+      input;
+    const observe = async (event, code) => {
+      if (admin && actorId)
+        await recordEventImpl(admin, {
+          event,
+          code,
+          actorId,
+          requestId: logRequestId,
+          toolId: input?.tool?.id,
+          durationMs: Date.now() - started,
+        });
+    };
+    const bad = async (status, error, code) => {
       res.status(status).json({ error, code });
+      if (actorId) await observe("request_rejected", code);
+    };
+    const rejectLimit = async (code) => {
+      const limit = rateResponse(code);
+      if (!limit) return false;
+      res.setHeader("Retry-After", String(limit.retry));
+      await bad(limit.status, limit.message, limit.code);
+      return true;
+    };
     if (req.method !== "POST") {
       res.setHeader("Allow", "POST");
       return bad(405, "Kaedah tidak dibenarkan.", "METHOD_NOT_ALLOWED");
@@ -50,7 +77,6 @@ export function createGenerationHandler({
     ).match(/^Bearer\s+(\S+)$/i)?.[1];
     if (!token)
       return bad(401, "Sila log masuk terlebih dahulu.", "UNAUTHORIZED");
-    let input;
     try {
       input = prepareGeneration(req.body);
     } catch (error) {
@@ -66,17 +92,18 @@ export function createGenerationHandler({
       !env.GEMINI_API_KEY
     )
       return bad(503, "Konfigurasi pelayan belum lengkap.", "SERVER_CONFIG");
-    const admin = createClient(
-      env.SUPABASE_URL,
-      env.SUPABASE_SERVICE_ROLE_KEY,
-      {
-        auth: { persistSession: false, autoRefreshToken: false },
-        global: {
-          fetch: (url, options) =>
-            fetchImpl(url, { ...options, signal: AbortSignal.timeout(5000) }),
-        },
+    admin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: {
+        fetch: (url, options) =>
+          fetchImpl(url, {
+            ...options,
+            signal: AbortSignal.any(
+              [options?.signal, AbortSignal.timeout(5000)].filter(Boolean),
+            ),
+          }),
       },
-    );
+    });
     const controller = new AbortController();
     const timer = setTimeout(
       () => controller.abort(new Error("GENERATION_TIMEOUT")),
@@ -121,6 +148,18 @@ export function createGenerationHandler({
           "Sesi tamat atau tidak sah. Sila log masuk semula.",
           "UNAUTHORIZED",
         );
+      actorId = auth.user.id;
+      const rate = await admin.rpc("check_generation_rate", {
+        p_user_id: actorId,
+      });
+      if (rate.error || rate.data !== true) {
+        if (rate.error && (await rejectLimit(rate.error.code))) return;
+        return bad(
+          503,
+          "Kawalan trafik tidak tersedia. Cuba lagi sebentar.",
+          "RATE_UNAVAILABLE",
+        );
+      }
       const { data: profile, error: profileError } = await admin
         .from("profiles")
         .select("plan")
@@ -140,11 +179,13 @@ export function createGenerationHandler({
         );
       if (controller.signal.aborted) throw controller.signal.reason;
       const requestId = uuid();
+      logRequestId = requestId;
       const { data: remaining, error: quotaError } = await admin.rpc(
         "reserve_generation",
         { p_request_id: requestId, p_user_id: auth.user.id },
       );
       if (quotaError) {
+        if (await rejectLimit(quotaError.code)) return;
         if (quotaError.code === "GURUQ")
           return bad(
             429,
@@ -160,6 +201,17 @@ export function createGenerationHandler({
       reservation = requestId;
       let upstream = null;
       for (const model of MODELS) {
+        if (controller.signal.aborted) throw controller.signal.reason;
+        const budget = await admin.rpc("begin_model_attempt", {
+          p_request_id: requestId,
+          p_model: model,
+        });
+        if (budget.error || budget.data !== true) {
+          await finish(false);
+          if (budget.error && (await rejectLimit(budget.error.code))) return;
+          throw new Error("MODEL_BUDGET_UNAVAILABLE");
+        }
+
         const attempt = new AbortController();
         const attemptTimer = setTimeout(
           () =>
@@ -249,6 +301,7 @@ export function createGenerationHandler({
         }
       }
       await finish(true);
+      await observe("generation_ok", "COMPLETED");
       event("done", { quotaRemaining: remaining });
       res.end();
     } catch (error) {
@@ -265,6 +318,7 @@ export function createGenerationHandler({
           : Object.hasOwn(MESSAGES, error?.message)
             ? error.message
             : "GENERATION_FAILED";
+      await observe("generation_error", code);
       const message =
         MESSAGES[code] + (refunded ? " Kuota janaan ini dipulangkan." : "");
       if (!res.writableEnded && !res.destroyed) {

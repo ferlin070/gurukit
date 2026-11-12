@@ -1,3 +1,7 @@
+import health from "../api/health.js";
+import clientError from "../api/client-error.js";
+import operations from "../api/operations.js";
+import opsStatus from "../api/ops-status.js";
 import http from "node:http";
 import { createClient } from "@supabase/supabase-js";
 import { createGenerationHandler } from "../server/handler.js";
@@ -20,7 +24,15 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify(body));
     return res;
   };
-  if (req.url !== "/api/generate") {
+  const routes = {
+    "/api/generate": handler,
+    "/api/health": health,
+    "/api/client-error": clientError,
+    "/api/operations": operations,
+    "/api/ops-status": opsStatus,
+  };
+  const selected = routes[new URL(req.url, "http://localhost").pathname];
+  if (!selected) {
     res.status(404).json({ error: "Endpoint tidak ditemukan." });
     return;
   }
@@ -33,7 +45,7 @@ const server = http.createServer(async (req, res) => {
     }
   }
   req.body = body;
-  await handler(req, res);
+  await selected(req, res);
 });
 server.requestTimeout = 60000;
 server.listen(3001, "127.0.0.1", () =>
