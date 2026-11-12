@@ -188,19 +188,25 @@ jobs:
               execute format('drop table if exists public.%I cascade', t);
             end loop;
           end $$;
-          DO $$ declare t text; begin
-            for t in select table_name from information_schema.tables where table_schema = 'storage' and table_type = 'BASE TABLE' loop
-              execute format('delete from storage.%I', t);
-            end loop;
-          end $$;
-          DO $$ declare t text; begin
-            for t in select table_name from information_schema.tables where table_schema = 'auth' and table_type = 'BASE TABLE' loop
-              execute format('delete from auth.%I', t);
-            end loop;
-          end $$;
+          truncate auth.users cascade;
+          truncate auth.sessions cascade;
+          truncate auth.refresh_tokens cascade;
+          truncate auth.identities cascade;
+          truncate auth.mfa_factors cascade;
+          truncate auth.mfa_amr_claims cascade;
+          truncate auth.mfa_challenges cascade;
+          truncate auth.one_time_tokens cascade;
+          truncate auth.flow_state cascade;
+          truncate auth.sso_providers cascade;
+          truncate auth.saml_providers cascade;
+          truncate auth.auth_codes cascade;
           SQL
+          set +e
           docker run --rm -i -e URL="$DRILL_DB_URL" postgres:17-alpine \
-            sh -c 'psql "$URL" -v ON_ERROR_STOP=0 -f /dev/stdin' < /tmp/preclean.sql || true
+            sh -c 'psql "$URL" -v ON_ERROR_STOP=0 -f /dev/stdin' < /tmp/preclean.sql 2>&1 | tee /tmp/preclean.log
+          echo '--- preclean errors (jika ada) ---'
+          grep -iE 'error|denied' /tmp/preclean.log || echo 'tiada ralat preclean'
+          set -e
           set +e
           docker run --rm -i -v /tmp:/out -e URL="$DRILL_DB_URL" postgres:17-alpine \
             sh -c 'pg_restore -d "$URL" --use-list=/out/filtered-toc.txt --no-owner --no-privileges /out/gurukit-full.dump' > /tmp/restore.log 2>&1
