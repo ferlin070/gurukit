@@ -9,25 +9,40 @@ concurrency:
   group: supabase-backup
   cancel-in-progress: false
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   backup:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      DATE_TAG: ''
     steps:
+      - name: Set date tag
+        run: |
+          echo "DATE_TAG=$(date -u +%F)" >> "$GITHUB_ENV"
+
       - name: Dump database (PostgreSQL 17 via docker, custom format)
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          # pg_dump mesti sepadan versi pelayan (17). Session pooler diperlukan
-          # (transaction pooler tidak menyokong pg_dump).
+          set -euo pipefail
+          # pg_dump mesti sepadan versi pelayan (17). Session pooler diperlukan.
           docker run --rm -v /tmp:/out -e URL="$SUPABASE_DB_URL" postgres:17-alpine \
             sh -c 'pg_dump "$URL" --format=custom --no-owner --no-privileges -f /out/gurukit-full.dump && pg_dump --version'
+          test -s /tmp/gurukit-full.dump
+          pg_restore --list /tmp/gurukit-full.dump > /tmp/toc.txt
+          grep -q 'PostgreSQL 17' /tmp/toc.txt || { echo 'dump bukan PG17'; exit 1; }
+          echo "toc_objects=$(grep -cE '^[0-9]+;' /tmp/toc.txt)" >> "$GITHUB_ENV"
           ls -la /tmp/gurukit-full.dump
 
       - name: Export roles + auth snapshot SQL
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
+          set -euo pipefail
           cat > /tmp/roles.sql <<'SQL'
           select 'CREATE ROLE "' || rolname || '";' as ddl
           from pg_roles
@@ -39,70 +54,94 @@ jobs:
           and rolname not like 'pg_%'
           order by rolname;
           SQL
-          docker run --rm -i -v /tmp:/out -e URL="$SUPABASE_DB_URL" postgres:17-alpine \
-            sh -c 'psql "$URL" -At -f /dev/stdin > /out/roles-snapshot.txt' < /tmp/roles.sql || true
-          wc -l /tmp/roles-snapshot.txt || true
+          docker run --rm -i -e URL="$SUPABASE_DB_URL" postgres:17-alpine \
+            sh -c 'psql "$URL" -v ON_ERROR_STOP=1 -At -f /dev/stdin > /out/roles-snapshot.txt' < /tmp/roles.sql
+          test -s /tmp/roles-snapshot.txt
 
-      - name: Export auth/config metadata note
+      - name: Export auth/config metadata note (canary check)
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
+          set -euo pipefail
           cat > /tmp/note.sql <<'SQL'
-          select jsonb_pretty(jsonb_build_object(
+          select jsonb_build_object(
             'exported_at', now(),
             'auth_users_count', (select count(*) from auth.users),
             'auth_identities_count', (select count(*) from auth.identities),
             'mfa_factors_count', (select count(*) from auth.mfa_factors),
+            'canary_present', exists(select 1 from auth.users where email = 'canary-backup@ghazwahgroup.com'),
             'storage_buckets', (select jsonb_agg(name) from storage.buckets),
             'note', 'SMTP credentials, OAuth provider client secrets, redirect URLs dan tetapan dashboard Auth TIDAK termasuk dalam dump DB - eksport berasingan dari dashboard.'
-          ));
+          )::text;
           SQL
-          docker run --rm -i -v /tmp:/out -e URL="$SUPABASE_DB_URL" postgres:17-alpine \
-            sh -c 'psql "$URL" -At -f /dev/stdin > /out/auth-note.json' < /tmp/note.sql
+          docker run --rm -i -e URL="$SUPABASE_DB_URL" postgres:17-alpine \
+            sh -c 'psql "$URL" -v ON_ERROR_STOP=1 -At -f /dev/stdin > /out/auth-note.json' < /tmp/note.sql
+          test -s /tmp/auth-note.json
+          grep -q '"canary_present" : true' /tmp/auth-note.json || { echo 'CANARY TIADA DALAM PRODUCTION'; exit 1; }
 
-      - name: Encrypt (AES-256-GCM)
+      - name: Encrypt (AES-256-GCM) + manifest
         env:
           BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+          DATE_TAG: ${{ env.DATE_TAG }}
+          toc_objects: ${{ env.toc_objects }}
         run: |
+          set -euo pipefail
           cat > /tmp/encrypt.mjs <<'EOF'
-          import { createCipheriv, randomBytes, scryptSync } from 'node:crypto';
+          import { createCipheriv, randomBytes, scryptSync, createHash } from 'node:crypto';
           import { readFileSync, writeFileSync } from 'node:fs';
           const key32 = scryptSync(process.env.BACKUP_ENCRYPTION_KEY, 'gurukit-backup-v1', 32);
+          const plainDigest = {};
           for (const f of process.argv.slice(2)) {
+            plainDigest[f.split('/').pop()] = createHash('sha256').update(readFileSync(f)).digest('hex');
             const iv = randomBytes(12);
             const c = createCipheriv('aes-256-gcm', key32, iv);
-            const data = readFileSync(f);
-            const ct = Buffer.concat([c.update(data), c.final()]);
-            const out = Buffer.concat([Buffer.from('GKBK1'), iv, ct, c.getAuthTag()]);
-            writeFileSync(f + '.enc', out);
-            console.log(f + '.enc', out.length, 'bytes');
+            const ct = Buffer.concat([c.update(readFileSync(f)), c.final()]);
+            writeFileSync(f + '.enc', Buffer.concat([Buffer.from('GKBK1'), iv, ct, c.getAuthTag()]));
           }
+          writeFileSync('/tmp/plain-digests.json', JSON.stringify(plainDigest, null, 2));
+          console.log('encrypted:', Object.keys(plainDigest).join(', '));
           EOF
           node /tmp/encrypt.mjs /tmp/gurukit-full.dump /tmp/roles-snapshot.txt /tmp/auth-note.json
-          DATE=$(date -u +%F)
+          DATE="$DATE_TAG"
           mv /tmp/gurukit-full.dump.enc "/tmp/gurukit-supabase-full-${DATE}.enc"
           mv /tmp/roles-snapshot.txt.enc "/tmp/gurukit-roles-${DATE}.enc"
           mv /tmp/auth-note.json.enc "/tmp/gurukit-authnote-${DATE}.enc"
-          sha256sum /tmp/gurukit-*.enc > /tmp/checksums.txt
-          cat /tmp/checksums.txt
+          sha256sum /tmp/gurukit-supabase-full-${DATE}.enc /tmp/gurukit-roles-${DATE}.enc /tmp/gurukit-authnote-${DATE}.enc > /tmp/checksums.txt
+          cat > /tmp/manifest.mjs <<'EOF'
+          import { readFileSync, writeFileSync } from 'node:fs';
+          import { createHash } from 'node:crypto';
+          const date = process.env.DATE;
+          const files = ['gurukit-supabase-full-', 'gurukit-roles-', 'gurukit-authnote-'].map(p => p + date + '.enc');
+          const manifest = {
+            set: date,
+            created_at: new Date().toISOString(),
+            schema: 'gurukit-full-backup-v2',
+            files: files.map(f => ({ name: f, sha256_enc: createHash('sha256').update(readFileSync('/tmp/' + f)).digest('hex') })),
+            toc_objects: Number(process.env.TOC_OBJECTS || 0)
+          };
+          writeFileSync('/tmp/gurukit-manifest-' + date + '.json', JSON.stringify(manifest, null, 2));
+          console.log('manifest siap:', manifest.files.map(f => f.name).join(', '));
+          EOF
+          DATE="$DATE" TOC_OBJECTS="$toc_objects" node /tmp/manifest.mjs
+          echo "MANIFEST_FILE=gurukit-manifest-${DATE}.json" >> "$GITHUB_ENV"
 
-      - name: Upload to Google Drive
+      - name: Upload set ke Google Drive (idempoten, resumable)
         env:
           DRIVE_CLIENT_ID: ${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}
           DRIVE_CLIENT_SECRET: ${{ secrets.GOOGLE_DRIVE_CLIENT_SECRET }}
           DRIVE_REFRESH_TOKEN: ${{ secrets.GOOGLE_DRIVE_REFRESH_TOKEN }}
+          DATE_TAG: ${{ env.DATE_TAG }}
+          MANIFEST_FILE: ${{ env.MANIFEST_FILE }}
         run: |
+          set -euo pipefail
           cat > /tmp/drive-upload.mjs <<'EOF'
-          import { readFileSync } from 'node:fs';
-          const cid = process.env.DRIVE_CLIENT_ID;
-          const cs = process.env.DRIVE_CLIENT_SECRET;
-          const rt = process.env.DRIVE_REFRESH_TOKEN;
+          import { readFileSync, writeFileSync, statSync } from 'node:fs';
+          const cid = process.env.DRIVE_CLIENT_ID, cs = process.env.DRIVE_CLIENT_SECRET, rt = process.env.DRIVE_REFRESH_TOKEN;
           const tok = await (await fetch('https://oauth2.googleapis.com/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({ client_id: cid, client_secret: cs, refresh_token: rt, grant_type: 'refresh_token' })
           })).json();
-          if (!tok.access_token) throw new Error('token refresh gagal: ' + JSON.stringify(tok).slice(0, 200));
+          if (!tok.access_token) throw new Error('token refresh gagal');
           const at = tok.access_token;
           async function ensureFolder() {
             const q = encodeURIComponent("name = 'GuruKit Backups' and mimeType = 'application/vnd.google-apps.folder' and trashed = false");
@@ -115,26 +154,165 @@ jobs:
             return c.id;
           }
           const folderId = await ensureFolder();
+          const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
+          const existing = {};
+          let pageToken = '';
+          do {
+            const url = `https://www.googleapis.com/drive/v3/files?q=${q}&fields=nextPageToken,files(id,name,md5Checksum,size)` + (pageToken ? `&pageToken=${pageToken}` : '');
+            const page = await (await fetch(url, { headers: { Authorization: `Bearer ${at}` } })).json();
+            for (const f of page.files || []) if (!existing[f.name]) existing[f.name] = f;
+            pageToken = page.nextPageToken || '';
+          } while (pageToken);
           for (const f of process.argv.slice(2)) {
-            const meta = { name: f.split('/').pop(), parents: [folderId] };
-            const fd = new FormData();
-            fd.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
-            fd.append('file', new Blob([readFileSync(f)]));
-            const up = await (await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,size', {
-              method: 'POST', headers: { Authorization: `Bearer ${at}` }, body: fd
-            })).json();
-            if (!up.id) throw new Error('upload gagal: ' + JSON.stringify(up).slice(0, 200));
-            console.log('uploaded', meta.name, JSON.stringify(up));
+            const name = f.split('/').pop();
+            const size = statSync(f).size;
+            if (existing[name]) {
+              const remote = Buffer.from(await (await fetch(`https://www.googleapis.com/drive/v3/files/${existing[name].id}?alt=media`, { headers: { Authorization: `Bearer ${at}` } })).arrayBuffer());
+              if (remote.length !== size) throw new Error(`RETRY CONFLICT: ${name} wujud dengan saiz berbeza (${remote.length} vs ${size}) - jangan tindih`);
+              const { createHash } = await import('node:crypto');
+              const md5 = createHash('md5').update(remote).digest('hex');
+              if (existing[name].md5Checksum && md5 !== existing[name].md5Checksum) throw new Error(`RETRY CONFLICT: md5 Drive tidak sepadan untuk ${name}`);
+              console.log('SKIP (sudah wujud, kandungan sama):', name);
+              writeFileSync('/tmp/uploaded-' + name, 'existing');
+              continue;
+            }
+            const session = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${at}`, 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': 'application/octet-stream', 'X-Upload-Content-Length': String(size) },
+              body: JSON.stringify({ name, parents: [folderId] })
+            });
+            if (!session.ok) throw new Error('resumable session gagal: ' + session.status);
+            const upUrl = session.headers.get('location');
+            const up = await fetch(upUrl, { method: 'PUT', headers: { 'Content-Length': String(size) }, body: readFileSync(f) });
+            const meta = await up.json();
+            if (!meta.id) throw new Error('upload gagal: ' + JSON.stringify(meta).slice(0, 200));
+            console.log('uploaded', name, 'md5=' + (meta.md5Checksum || ''));
+            writeFileSync('/tmp/uploaded-' + name, String(meta.id));
           }
           EOF
-          DATE=$(date -u +%F)
-          node /tmp/drive-upload.mjs "/tmp/gurukit-supabase-full-${DATE}.enc" "/tmp/gurukit-roles-${DATE}.enc" "/tmp/gurukit-authnote-${DATE}.enc" /tmp/checksums.txt
+          node /tmp/drive-upload.mjs \
+            "/tmp/gurukit-supabase-full-${DATE_TAG}.enc" \
+            "/tmp/gurukit-roles-${DATE_TAG}.enc" \
+            "/tmp/gurukit-authnote-${DATE_TAG}.enc"
+          node /tmp/drive-upload.mjs "/tmp/${MANIFEST_FILE}"
+
+      - name: Readback verification (checksum + AES-GCM + plaintext digest + pg_restore --list)
+        env:
+          DRIVE_CLIENT_ID: ${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}
+          DRIVE_CLIENT_SECRET: ${{ secrets.GOOGLE_DRIVE_CLIENT_SECRET }}
+          DRIVE_REFRESH_TOKEN: ${{ secrets.GOOGLE_DRIVE_REFRESH_TOKEN }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+          DATE_TAG: ${{ env.DATE_TAG }}
+        run: |
+          set -euo pipefail
+          cat > /tmp/verify.mjs <<'EOF'
+          import { createDecipheriv, scryptSync, createHash } from 'node:crypto';
+          import { readFileSync, writeFileSync } from 'node:fs';
+          const cid = process.env.DRIVE_CLIENT_ID, cs = process.env.DRIVE_CLIENT_SECRET, rt = process.env.DRIVE_REFRESH_TOKEN;
+          const tok = await (await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: cid, client_secret: cs, refresh_token: rt, grant_type: 'refresh_token' }) })).json();
+          const at = tok.access_token;
+          const key32 = scryptSync(process.env.BACKUP_ENCRYPTION_KEY, 'gurukit-backup-v1', 32);
+          const digests = JSON.parse(readFileSync('/tmp/plain-digests.json', 'utf8'));
+          for (const f of process.argv.slice(2)) {
+            const name = f.split('/').pop();
+            const ids = readFileSync('/tmp/uploaded-' + name, 'utf8');
+            let buf;
+            if (ids === 'existing') {
+              buf = readFileSync(f);
+            } else {
+              buf = Buffer.from(await (await fetch(`https://www.googleapis.com/drive/v3/files/${ids}?alt=media`, { headers: { Authorization: `Bearer ${at}` } })).arrayBuffer());
+            }
+            const sha = createHash('sha256').update(buf).digest('hex');
+            const expectLine = readFileSync('/tmp/checksums.txt', 'utf8').split('\n').find(l => l.includes(name));
+            if (!expectLine || !expectLine.startsWith(sha)) throw new Error(`READBACK CHECKSUM GAGAL untuk ${name}`);
+            if (buf.subarray(0, 5).toString() !== 'GKBK1') throw new Error('magic tidak sah: ' + name);
+            const c = createDecipheriv('aes-256-gcm', key32, buf.subarray(5, 17));
+            c.setAuthTag(buf.subarray(buf.length - 16));
+            const plain = Buffer.concat([c.update(buf.subarray(17, buf.length - 16)), c.final()]);
+            const plainDigest = createHash('sha256').update(plain).digest('hex');
+            const base = name.replace('gurukit-', '').replace('-' + process.env.DATE_TAG + '.enc', '');
+            const key = Object.keys(digests).find(k => k.startsWith(base.replace('supabase-full', 'full') ) || base.includes(k.split('.')[0].slice(0, 12)) || (base === 'full' && k === 'gurukit-full.dump') || k.startsWith(base));
+            if (!key) throw new Error('plaintext digest key tidak dijumpai untuk ' + name + ' (base=' + base + ')');
+            if (digests[key] !== plainDigest) throw new Error(`PLAINTEXT DIGEST GAGAL untuk ${name} (${key})`);
+            writeFileSync('/tmp/readback-' + name, plain);
+            console.log('OK', name, '| sha256_enc match | aes-gcm ok | plaintext digest match |', plain.length, 'bytes');
+          }
+          EOF
+          node /tmp/verify.mjs \
+            "/tmp/gurukit-supabase-full-${DATE_TAG}.enc" \
+            "/tmp/gurukit-roles-${DATE_TAG}.enc" \
+            "/tmp/gurukit-authnote-${DATE_TAG}.enc"
+          # dump mesti boleh dibaca pg_restore
+          pg_restore --list "/tmp/readback-gurukit-supabase-full-${DATE_TAG}.enc" > /tmp/readback-toc.txt
+          N=$(grep -cE '^[0-9]+;' /tmp/readback-toc.txt)
+          echo "readback toc objects: $N"
+          test "$N" -gt 0
+          echo "SET LENGKAP DISAHKAN: ${DATE_TAG}"
+
+      - name: Retention (7 set harian + 4 set mingguan; hanya fail bertag set backup penuh)
+        if: success()
+        env:
+          DRIVE_CLIENT_ID: ${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}
+          DRIVE_CLIENT_SECRET: ${{ secrets.GOOGLE_DRIVE_CLIENT_SECRET }}
+          DRIVE_REFRESH_TOKEN: ${{ secrets.GOOGLE_DRIVE_REFRESH_TOKEN }}
+          DATE_TAG: ${{ env.DATE_TAG }}
+        run: |
+          set -euo pipefail
+          cat > /tmp/retention.mjs <<'EOF'
+          const cid = process.env.DRIVE_CLIENT_ID, cs = process.env.DRIVE_CLIENT_SECRET, rt = process.env.DRIVE_REFRESH_TOKEN;
+          const tok = await (await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: cid, client_secret: cs, refresh_token: rt, grant_type: 'refresh_token' }) })).json();
+          const at = tok.access_token;
+          const q = encodeURIComponent("name = 'GuruKit Backups' and mimeType = 'application/vnd.google-apps.folder' and trashed = false");
+          const folder = await (await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`, { headers: { Authorization: `Bearer ${at}` } })).json();
+          const fid = folder.files[0].id;
+          const PREFIXES = ['gurukit-supabase-full-', 'gurukit-roles-', 'gurukit-authnote-', 'gurukit-manifest-'];
+          const q2 = encodeURIComponent(`'${fid}' in parents and trashed = false`);
+          const lst = await (await fetch(`https://www.googleapis.com/drive/v3/files?q=${q2}&fields=files(id,name,createdTime)&pageSize=200`, { headers: { Authorization: `Bearer ${at}` } })).json();
+          const inSet = (n) => PREFIXES.some(p => n.startsWith(p));
+          const dates = new Set();
+          for (const f of lst.files || []) {
+            if (inSet(f.name)) {
+              const m = f.name.match(/\d{4}-\d{2}-\d{2}/);
+              if (m) dates.add(m[0]);
+            }
+          }
+          const sorted = [...dates].sort().reverse();
+          const keep = new Set(sorted.slice(0, 7));
+          const sundays = sorted.filter(d => new Date(d + 'T00:00:00Z').getUTCDay() === 0);
+          sundays.slice(0, 4).forEach(d => keep.add(d));
+          const today = new Date().toISOString().slice(0, 10);
+          if (!keep.has(today)) throw new Error('set hari ini tidak dalam keep - retention dibatalkan');
+          const todayFiles = (lst.files || []).filter(f => f.name.includes(today) && inSet(f.name)).map(f => f.name);
+          for (const p of ['gurukit-manifest-', 'gurukit-supabase-full-', 'gurukit-roles-', 'gurukit-authnote-']) {
+            if (!todayFiles.some(n => n.startsWith(p))) throw new Error('set hari ini tidak lengkap (' + p + ') - retention dibatalkan');
+          }
+          let removed = 0;
+          for (const f of lst.files || []) {
+            if (!inSet(f.name)) continue; // jangan sentuh fail aplikasi/peribadi lain
+            const m = f.name.match(/\d{4}-\d{2}-\d{2}/);
+            if (!m) continue;
+            if (!keep.has(m[0])) {
+              const del = await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}`, { method: 'PATCH', headers: { Authorization: `Bearer ${at}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) });
+              if (del.ok) { removed++; console.log('trashed:', f.name); }
+              else console.log('gagal trash:', f.name, del.status);
+            }
+          }
+          console.log('retention siap. set dikekalkan:', [...keep].sort().join(', '), '| fail trashed:', removed);
+          EOF
+          node /tmp/retention.mjs
+
+      - name: Cleanup temp files
+        if: always()
+        run: |
+          sudo rm -f /tmp/gurukit-* /tmp/roles* /tmp/note* /tmp/plain-digests.json /tmp/verify-results.json /tmp/uploaded-* /tmp/readback-* /tmp/checksums.txt /tmp/toc.txt /tmp/readback-toc.txt 2>/dev/null || true
+          echo "temp dibersihkan"
 
       - name: Summary
         if: always()
         run: |
           echo "## Supabase backup run $(date -u +%F)" >> $GITHUB_STEP_SUMMARY
           echo "- Dump: pg_dump 17 (custom format), schema public + auth + storage" >> $GITHUB_STEP_SUMMARY
-          echo "- Enkripsi: AES-256-GCM sebelum upload" >> $GITHUB_STEP_SUMMARY
-          echo "- Destinasi: Google Drive / GuruKit Backups" >> $GITHUB_STEP_SUMMARY
+          echo "- Canary dalam dump: disahkan pada langkah metadata" >> $GITHUB_STEP_SUMMARY
+          echo "- Readback: checksum ciphertext + AES-GCM + plaintext digest + pg_restore --list" >> $GITHUB_STEP_SUMMARY
+          echo "- Retention: 7 harian + 4 mingguan, hanya fail bertag set backup penuh" >> $GITHUB_STEP_SUMMARY
           echo "- Pengecualian: role password hash, SMTP/OAuth auth config (dashboard), fail Storage S3" >> $GITHUB_STEP_SUMMARY

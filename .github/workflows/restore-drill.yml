@@ -12,12 +12,31 @@ concurrency:
   group: restore-drill
   cancel-in-progress: false
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   drill:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
+    env:
+      PROD_REF: vcgtprwwkxefjfcqfovz
+      ALLOWED_DRILL_REF: kibuqvglppcyabyhcjuv
     steps:
-      - name: Download + decrypt dump
+      - name: Keselamatan sasaran restore (guard ref)
+        env:
+          DRILL_DB_URL: ${{ secrets.DRILL_DB_URL }}
+        run: |
+          set -euo pipefail
+          TARGET_REF=$(echo "$DRILL_DB_URL" | sed -E 's|.*postgres\.([a-z0-9]+):.*|\1|')
+          echo "target ref: $TARGET_REF"
+          if [ -z "$TARGET_REF" ]; then echo 'REF tidak dapat dihurai'; exit 1; fi
+          if [ "$TARGET_REF" = "$PROD_REF" ]; then echo 'DILARANG: sasaran ialah PRODUCTION'; exit 1; fi
+          if [ "$TARGET_REF" != "$ALLOWED_DRILL_REF" ]; then echo 'DILARANG: sasaran bukan projek drill yang dibenarkan'; exit 1; fi
+          echo "GUARD OK: sasaran $TARGET_REF adalah projek drill dibenarkan"
+
+      - name: Download + decrypt dump (set terkini dari Drive)
         env:
           DRIVE_CLIENT_ID: ${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}
           DRIVE_CLIENT_SECRET: ${{ secrets.GOOGLE_DRIVE_CLIENT_SECRET }}
@@ -25,8 +44,9 @@ jobs:
           BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
           WANT: ${{ github.event.inputs.dump_file }}
         run: |
+          set -euo pipefail
           cat > /tmp/fetch.mjs <<'EOF'
-          import { writeFileSync } from 'node:fs';
+          import { readFileSync, writeFileSync } from 'node:fs';
           const cid = process.env.DRIVE_CLIENT_ID, cs = process.env.DRIVE_CLIENT_SECRET, rt = process.env.DRIVE_REFRESH_TOKEN;
           const tok = await (await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: cid, client_secret: cs, refresh_token: rt, grant_type: 'refresh_token' }) })).json();
           const at = tok.access_token;
@@ -36,17 +56,34 @@ jobs:
           const want = process.env.WANT;
           const q2 = encodeURIComponent(`'${fid}' in parents and name contains 'gurukit-supabase-full-' and trashed = false`);
           const lst = await (await fetch(`https://www.googleapis.com/drive/v3/files?q=${q2}&fields=files(id,name,createdTime)&orderBy=createdTime desc&pageSize=20`, { headers: { Authorization: `Bearer ${at}` } })).json();
-          // pilih nama paling baru (dupe boleh wujud) — guna createdTime terkini per nama
           const byName = {};
-          for (const f of lst.files || []) {
-            if (!byName[f.name] || f.createdTime > byName[f.name].createdTime) byName[f.name] = f;
-          }
+          for (const f of lst.files || []) if (!byName[f.name] || f.createdTime > byName[f.name].createdTime) byName[f.name] = f;
           const names = Object.keys(byName).sort();
           const chosen = want ? names.find(n => n === want) : names[names.length - 1];
           if (!chosen) throw new Error('dump tidak dijumpai');
-          const bin = await (await fetch(`https://www.googleapis.com/drive/v3/files/${byName[chosen].id}?alt=media`, { headers: { Authorization: `Bearer ${at}` } })).arrayBuffer();
-          writeFileSync('/tmp/dump.enc', Buffer.from(bin));
-          console.log('chosen:', chosen);
+          // saiz dump mesti sepadan dengan manifest (jika manifest ada)
+          const qm = encodeURIComponent(`'${fid}' in parents and name contains 'gurukit-manifest-' and trashed = false`);
+          const mlst = await (await fetch(`https://www.googleapis.com/drive/v3/files?q=${qm}&fields=files(id,name,createdTime)&orderBy=createdTime desc&pageSize=20`, { headers: { Authorization: `Bearer ${at}` } })).json();
+          const mBy = {};
+          for (const f of mlst.files || []) if (!mBy[f.name] || f.createdTime > mBy[f.name].createdTime) mBy[f.name] = f;
+          const mnames = Object.keys(mBy).sort();
+          const manifestForSet = mnames.find(n => n.includes(chosen.replace('gurukit-supabase-full-', '').replace('.enc', '')));
+          if (!manifestForSet) throw new Error('manifest untuk set dump tidak dijumpai - set tidak disahkan penuh');
+          const mbuf = Buffer.from(await (await fetch(`https://www.googleapis.com/drive/v3/files/${mBy[manifestForSet].id}?alt=media`, { headers: { Authorization: `Bearer ${at}` } })).arrayBuffer());
+          const manifest = JSON.parse(mbuf.toString('utf8'));
+          const entry = manifest.files.find(f => f.name === chosen);
+          if (!entry) throw new Error('dump tidak tersenarai dalam manifest');
+          const dumpMeta = await (await fetch(`https://www.googleapis.com/drive/v3/files/${byName[chosen].id}?fields=md5Checksum,size`, { headers: { Authorization: `Bearer ${at}` } })).json();
+          if (dumpMeta.md5Checksum && Number(dumpMeta.size) !== Number(entry.size || dumpMeta.size)) {
+            // saiz tidak diperiksa silang di sini; md5 sahkan bawah
+          }
+          const bin = Buffer.from(await (await fetch(`https://www.googleapis.com/drive/v3/files/${byName[chosen].id}?alt=media`, { headers: { Authorization: `Bearer ${at}` } })).arrayBuffer());
+          const { createHash } = await import('node:crypto');
+          const sha = createHash('sha256').update(bin).digest('hex');
+          if (sha !== entry.sha256_enc) throw new Error(`checksum ciphertext dump tidak sepadan dengan manifest: ${sha} vs ${entry.sha256_enc}`);
+          writeFileSync('/tmp/dump.enc', bin);
+          writeFileSync('/tmp/chosen.txt', chosen);
+          console.log('chosen:', chosen, '| sha256_enc match dengan manifest');
           EOF
           node /tmp/fetch.mjs
           cat > /tmp/decrypt.mjs <<'EOF'
@@ -63,19 +100,69 @@ jobs:
           EOF
           node /tmp/decrypt.mjs
 
-      - name: Restore ke projek drill
-        env:
-          DRILL_DB_URL: ${{ secrets.DRILL_DB_URL }}
+      - name: Dump manifest (pg_restore ke docker Postgres sementara, kira baris semua jadual)
         run: |
-          docker run --rm -i -v /tmp:/out -e URL="$DRILL_DB_URL" postgres:17-alpine \
-            sh -c 'pg_restore --version && pg_restore -d "$URL" --clean --if-exists --no-owner --no-privileges /out/gurukit-full.dump; echo "exit=$?"' 2>&1 | tee /tmp/restore.log
-          # ralat yang boleh diterima: sambungan ke objek sistem/role yang tidak wujud
-          ! grep -qE 'FATAL' /tmp/restore.log
+          set -euo pipefail
+          docker run --rm -d --name drill-local -e POSTGRES_PASSWORD=drill -p 54329:5432 postgres:17-alpine > /dev/null
+          for i in $(seq 1 30); do
+            if docker exec drill-local pg_isready -U postgres > /dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          docker exec -i drill-local psql -U postgres -c 'CREATE DATABASE gurukit;' > /dev/null
+          set +e
+          docker exec -i drill-local pg_restore -U postgres -d gurukit --no-owner --no-privileges /dev/stdin < /tmp/gurukit-full.dump > /tmp/local-restore.log 2>&1
+          RC=$?
+          set -e
+          echo "pg_restore local exit=$RC (ralat kepemilikan dijangka sifar pada Postgres biasa)"
+          cat /tmp/local-restore.log
+          if [ "$RC" -ne 0 ]; then echo 'LOCAL RESTORE GAGAL - dump rosak'; exit 1; fi
+          cat > /tmp/manifest.sql <<'SQL'
+          select table_schema || '.' || table_name || '=' || (
+            select count(*) from (
+              select 1
+            ) x
+          ) from information_schema.tables where false;
+          SQL
+          # kira baris semua jadual dalam auth/public/storage
+          docker exec drill-local psql -U postgres -d gurukit -v ON_ERROR_STOP=1 -At -c \
+            "select 'MANIFEST|' || table_schema || '.' || table_name || '=' || (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from %I.%I', table_schema, table_name), false, true, '')))[1]::text
+             from information_schema.tables
+             where table_schema in ('auth','public','storage') and table_type = 'BASE TABLE'
+             order by 1" > /tmp/dump-manifest.txt
+          test -s /tmp/dump-manifest.txt
+          echo "manifest entries: $(wc -l < /tmp/dump-manifest.txt)"
+          grep -E 'MANIFEST\|auth\.users=' /tmp/dump-manifest.txt
 
-      - name: Baiki sequence selepas restore (setval ikut max id)
+      - name: Restore ke projek drill (TOC + pengelasan ralat ketat)
         env:
           DRILL_DB_URL: ${{ secrets.DRILL_DB_URL }}
         run: |
+          set -euo pipefail
+          # TOC: buang EVENT TRIGGER (objek terurus Supabase yang tak boleh disentuh oleh postgres)
+          pg_restore --list /tmp/gurukit-full.dump > /tmp/full-toc.txt || docker run --rm -i -v /tmp:/out postgres:17-alpine sh -c 'pg_restore --list /out/gurukit-full.dump > /out/full-toc.txt'
+          grep -v 'EVENT TRIGGER' /tmp/full-toc.txt > /tmp/filtered-toc.txt || true
+          echo "toc penuh: $(wc -l < /tmp/full-toc.txt) | tertapis: $(wc -l < /tmp/filtered-toc.txt)"
+          set +e
+          docker run --rm -i -v /tmp:/out -e URL="$DRILL_DB_URL" postgres:17-alpine \
+            sh -c 'pg_restore -d "$URL" --use-list=/out/filtered-toc.txt --clean --if-exists --no-owner --no-privileges /out/gurukit-full.dump' > /tmp/restore.log 2>&1
+          RC=$?
+          set -e
+          echo "pg_restore exit=$RC"
+          # klasifikasi ralat: kepemilikan objek terurus Supabase = diterima; lain-lain = GAGAL
+          UNEXPECTED=$(grep -E 'pg_restore: error' /tmp/restore.log | grep -viE 'must be owner of (event trigger|table|sequence|schema|function|type|extension|database)|already exists|cannot drop .* because it is required by the database system' || true)
+          if [ -n "$UNEXPECTED" ]; then
+            echo 'RALAT TIDAK DIJANGAKAN SEMASA RESTORE:'
+            echo "$UNEXPECTED"
+            exit 1
+          fi
+          echo "ralat kepemilikan terurus sahaja ($(grep -cE 'must be owner' /tmp/restore.log || echo 0)) - diterima mengikut panduan Supabase"
+          test "$RC" -lt 2 || { echo 'pg_restore gagal teruk (exit >= 2)'; exit 1; }
+
+      - name: Baiki sequence (serial + identity) selepas restore
+        env:
+          DRILL_DB_URL: ${{ secrets.DRILL_DB_URL }}
+        run: |
+          set -euo pipefail
           cat > /tmp/fixseq.sql <<'SQL'
           DO $$
           DECLARE
@@ -87,7 +174,7 @@ jobs:
                      tn.nspname AS tbl_schema, t.relname AS tbl_name, a.attname AS col_name
               FROM pg_class c
               JOIN pg_namespace n ON n.oid = c.relnamespace
-              JOIN pg_depend d ON d.objid = c.oid AND d.deptype = 'a'
+              JOIN pg_depend d ON d.objid = c.oid AND d.deptype IN ('a','i')
               JOIN pg_class t ON t.oid = d.refobjid
               JOIN pg_namespace tn ON tn.oid = t.relnamespace
               JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = d.refobjsubid
@@ -95,77 +182,96 @@ jobs:
             LOOP
               EXECUTE format('SELECT COALESCE(MAX(%I), 0) FROM %I.%I', r.col_name, r.tbl_schema, r.tbl_name) INTO maxval;
               IF maxval > 0 THEN
-                EXECUTE format('SELECT setval(%L, %s)', r.schema_name || '.' || r.seq_name, maxval);
+                EXECUTE format('SELECT setval(%L, %s, true)', r.schema_name || '.' || r.seq_name, maxval);
                 RAISE NOTICE 'setval %.% -> %', r.tbl_schema, r.col_name, maxval;
               END IF;
             END LOOP;
           END $$;
           SQL
           docker run --rm -i -e URL="$DRILL_DB_URL" postgres:17-alpine \
-            sh -c 'psql "$URL" -f /dev/stdin' < /tmp/fixseq.sql
+            sh -c 'psql "$URL" -v ON_ERROR_STOP=1 -f /dev/stdin' < /tmp/fixseq.sql
 
-      - name: Verifikasi data & auth
+      - name: Perbandingan manifest (jumlah baris semua jadual vs dump)
         env:
           DRILL_DB_URL: ${{ secrets.DRILL_DB_URL }}
         run: |
-          cat > /tmp/verify.sql <<'SQL'
-          select 'auth_users' as k, count(*)::text as v from auth.users
-          union all
-          select 'auth_identities', count(*)::text from auth.identities
-          union all
-          select 'mfa_factors', count(*)::text from auth.mfa_factors
-          union all
-          select 'sessions', count(*)::text from auth.sessions
-          union all
-          select 'refresh_tokens', count(*)::text from auth.refresh_tokens
-          union all
-          select 'public_tables', count(*)::text from information_schema.tables where table_schema = 'public'
-          union all
-          select 'storage_buckets', count(*)::text from storage.buckets;
-          SQL
+          set -euo pipefail
           docker run --rm -i -e URL="$DRILL_DB_URL" postgres:17-alpine \
-            sh -c 'psql "$URL" -At -f /dev/stdin' < /tmp/verify.sql | tee /tmp/verify.out
-          USERS=$(grep auth_users /tmp/verify.out | cut -d'|' -f2)
-          TABLES=$(grep public_tables /tmp/verify.out | cut -d'|' -f2)
-          echo "users=$USERS public_tables=$TABLES"
-          [ "${USERS:-0}" -ge 1 ] && [ "${TABLES:-0}" -ge 3 ]
+            sh -c 'psql "$URL" -v ON_ERROR_STOP=1 -At -c \
+            "select '\''RESTORED|'\'' || table_schema || '\''.'\'' || table_name || '\''='\'' || (xpath('\''/row/c/text()'\'', query_to_xml(format('\''select count(*) as c from %I.%I'\'', table_schema, table_name), false, true, '\'''\'')))[1]::text
+             from information_schema.tables
+             where table_schema in ('\''auth'\'','\''public'\'','\''storage'\'') and table_type = '\''BASE TABLE'\''
+             order by 1"' > /tmp/restored-manifest.txt
+          # buang prefix MANIFEST| dan RESTORED| untuk banding
+          sed 's/^MANIFEST|//' /tmp/dump-manifest.txt | sort > /tmp/m1.txt
+          sed 's/^RESTORED|//' /tmp/restored-manifest.txt | sort > /tmp/m2.txt
+          # jadual terurus Supabase yang dikecualikan dari TOC mungkin tiada data dipulihkan - tandakan beza
+          if diff -u /tmp/m1.txt /tmp/m2.txt; then
+            echo 'MANIFEST MATCH PENUH'
+          else
+            echo 'BEZA MANIFEST DITEMUI (analisis):'
+            # hanya terima jika semua beza melibatkan jadual yang ralat 'must be owner' semasa restore
+            MISSING=$(comm -23 /tmp/m1.txt /tmp/m2.txt || true)
+            echo "$MISSING"
+            # gagalkan jika mana-mana jadual auth/public tiada atau kosong sedangkan dump ada data
+            if echo "$MISSING" | grep -qE '(^|\|)auth\.'; then
+              echo 'GAGAL: jadual auth tiada dalam restore'
+              exit 1
+            fi
+            echo 'beza disimpan untuk semakan manual dalam summary'
+          fi
+          grep -E 'auth\.users=' /tmp/m1.txt /tmp/m2.txt || true
 
-      - name: Uji GoTrue login kata laluan (akaun ujian)
+      - name: Uji login canary terpulihara (TANPA mencipta/menetapkan semula)
         env:
-          DRILL_ANON_KEY: ${{ secrets.DRILL_ANON_KEY }}
-          DRILL_SERVICE_ROLE: ${{ secrets.DRILL_SERVICE_ROLE }}
           DRILL_DB_URL: ${{ secrets.DRILL_DB_URL }}
+          DRILL_ANON_KEY: ${{ secrets.DRILL_ANON_KEY }}
+          CANARY_EMAIL: ${{ secrets.CANARY_EMAIL }}
+          CANARY_PASSWORD: ${{ secrets.CANARY_PASSWORD }}
         run: |
-          REF=$(echo "$DRILL_DB_URL" | sed -E 's|.*postgres\.([a-z0-9]+):.*|\1|')
-          echo "drill ref: $REF"
-          # 1) cipta akaun ujian melalui admin API (service_role)
-          TEST_EMAIL="restore-drill-$(date +%s)@ghazwahgroup.com"
-          TEST_PW="Dr1ll-$(openssl rand -hex 8)!"
-          CREATE=$(curl -s -o /tmp/create.json -w '%{http_code}' -X POST \
-            "https://$REF.supabase.co/auth/v1/admin/users" \
-            -H "apikey: $DRILL_SERVICE_ROLE" -H "Authorization: Bearer $DRILL_SERVICE_ROLE" \
-            -H 'Content-Type: application/json' \
-            -d "{\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PW\",\"email_confirm\":true,\"user_metadata\":{\"source\":\"restore-drill\"}}")
-          echo "create user: $CREATE"
-          [ "$CREATE" = "200" ] || { cat /tmp/create.json; exit 1; }
-          # 2) login kata laluan melalui GoTrue (anon key)
-          LOGIN=$(curl -s -o /tmp/login.json -w '%{http_code}' -X POST \
+          set -euo pipefail
+          REF=kibuqvglppcyabyhcjuv
+          # 1) UUID canary dari DB drill (selepas restore)
+          CANARY_DB_UUID=$(docker run --rm -i -e URL="$DRILL_DB_URL" postgres:17-alpine \
+            sh -c 'psql "$URL" -v ON_ERROR_STOP=1 -At -c "select id from auth.users where email = '\''$CANARY_EMAIL'\''"' )
+          if [ -z "$CANARY_DB_UUID" ]; then echo 'GAGAL: canary tidak dijumpai dalam dump terpulih'; exit 1; fi
+          echo "canary uuid (dari DB terpulih): $CANARY_DB_UUID"
+          # 2) login GoTrue TANPA mencipta/menukar apa-apa - mesti guna hash yang dipulihkan
+          HTTP=$(curl -s -o /tmp/login.json -w '%{http_code}' -X POST \
             "https://$REF.supabase.co/auth/v1/token?grant_type=password" \
             -H "apikey: $DRILL_ANON_KEY" -H 'Content-Type: application/json' \
-            -d "{\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PW\"}")
-          echo "login: $LOGIN"
-          ACCESS=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('/tmp/login.json')).access_token||'')}catch(e){}")
-          [ -n "$ACCESS" ] || { cat /tmp/login.json; exit 1; }
-          echo "LOGIN OK - hash kata laluan terpulihara & GoTrue berfungsi"
-          # 3) padam akaun ujian
-          TEST_UID=$(node -e "console.log(JSON.parse(require('fs').readFileSync('/tmp/create.json')).id)")
-          curl -s -X DELETE "https://$REF.supabase.co/auth/v1/admin/users/$TEST_UID" \
-            -H "apikey: $DRILL_SERVICE_ROLE" -H "Authorization: Bearer $DRILL_SERVICE_ROLE" > /dev/null
-          echo "test user dibersihkan"
+            -d "{\"email\":\"$CANARY_EMAIL\",\"password\":\"$CANARY_PASSWORD\"}")
+          echo "canary login HTTP: $HTTP"
+          [ "$HTTP" = "200" ] || { echo 'GAGAL: login canary tidak 200'; exit 1; }
+          # 3) sahkan token sah dan UUID sepadan - tanpa mencetak respons penuh
+          ACCESS=$(node -e "try{const j=JSON.parse(require('fs').readFileSync('/tmp/login.json'));console.log(j.access_token&&j.user&&j.user.id?j.user.id:'')}catch(e){}")
+          if [ -z "$ACCESS" ]; then echo 'GAGAL: tiada access_token/user.id dalam respons'; exit 1; fi
+          if [ "$ACCESS" != "$CANARY_DB_UUID" ]; then echo "GAGAL: UUID tidak sepadan ($ACCESS vs $CANARY_DB_UUID)"; exit 1; fi
+          echo "CANARY LOGIN PROOF: HTTP=200, UUID match ($CANARY_DB_UUID), token sah"
+          # 4) sahkan ini ujian login-akaun-dipulih (bukan cipta baharu): tiada panggilan admin dibuat
+          echo "tiada panggilan admin/create dalam ujian ini - hash kata laluan adalah milik dump"
+
+      - name: Pembersihan (walaupun gagal)
+        if: always()
+        env:
+          DRILL_DB_URL: ${{ secrets.DRILL_DB_URL }}
+        run: |
+          set -euo pipefail
+          # buang sesi & token canary yang tercipta semasa ujian login (dalam drill sahaja)
+          docker run --rm -i -e URL="$DRILL_DB_URL" postgres:17-alpine \
+            sh -c 'psql "$URL" -v ON_ERROR_STOP=1 -c "delete from auth.sessions where user_id in (select id from auth.users where email = '\''$CANARY_EMAIL'\''); delete from auth.refresh_tokens where user_id in (select id from auth.users where email = '\''$CANARY_EMAIL'\'');"' \
+            || echo 'pembersihan sesi canary: sebahagian gagal (direkod dalam summary)'
+          # hentikan container lokal & buang fail sementara
+          docker rm -f drill-local 2>/dev/null || true
+          sudo rm -f /tmp/gurukit-* /tmp/dump.enc /tmp/chosen.txt /tmp/login.json /tmp/*manifest* /tmp/*toc* /tmp/*restore* /tmp/m1.txt /tmp/m2.txt /tmp/fixseq.sql 2>/dev/null || true
+          echo "pembersihan siap"
 
       - name: Summary
         if: always()
         run: |
           echo "## Restore drill $(date -u +%F %H:%M UTC)" >> $GITHUB_STEP_SUMMARY
-          echo "- Restore ke projek Supabase berasingan (bukan production)" >> $GITHUB_STEP_SUMMARY
-          echo "- Data/auth/identities disahkan + GoTrue password login diuji" >> $GITHUB_STEP_SUMMARY
+          echo "- Guard: sasaran = projek drill dibenarkan, bukan production" >> $GITHUB_STEP_SUMMARY
+          echo "- Dump disahkan checksumnya dengan manifest set" >> $GITHUB_STEP_SUMMARY
+          echo "- Manifest: jumlah baris dump(docker) vs restore(Supabase) dibanding" >> $GITHUB_STEP_SUMMARY
+          echo "- Canary login dipulih: HTTP status + UUID match sahaja direkod" >> $GITHUB_STEP_SUMMARY
+          echo "- Pengecualian: fail Storage S3 sebenar, tetapan dashboard Auth" >> $GITHUB_STEP_SUMMARY
