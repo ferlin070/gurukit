@@ -56,6 +56,13 @@ function ToolRunner({ toolId }) {
           next.subjek = profile.context.subjek;
         if ("tahun" in next && !next.tahun)
           next.tahun = profile.context.tingkatan;
+        const levelField = tool?.fields.find(
+          (field) => field.name === "tingkatan",
+        );
+        if (levelField && next.tingkatan === (levelField.default || ""))
+          next.tingkatan = profile.context.tingkatan;
+        if ("sekolah" in next && !next.sekolah)
+          next.sekolah = profile.context.maktab;
         return next;
       });
     }

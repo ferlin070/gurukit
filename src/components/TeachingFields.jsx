@@ -16,6 +16,7 @@ export default function TeachingFields({
     <label key={key}>
       {label}
       <select
+        aria-label={label}
         value={value[key]}
         onChange={(e) => set(key, e.target.value)}
         disabled={disabled}

@@ -17,6 +17,8 @@ Tarikh: 12 November 2026 (Malaysia). Sasaran: semua guru MRSM, KSSM/DSKP sebagai
 | Sederhana | Kandungan generik merujuk LINUS/MASTIS dan tidak membezakan kelas, prep atau Homeroom.                                         | Konteks MRSM pada semua alat, pembezaan menengah, DLP, STEM, standard rujukan guru dan dua alat khusus.                                                                                                   |
 | Pelbagai  | `npm audit` melaporkan 15 isu (5 tinggi, 9 sederhana, 1 rendah).                                                               | Vite/React plugin dan React Router dikemas kini; `@vercel/node` yang hanya digunakan untuk jenis TypeScript dibuang. API menggunakan runtime Vercel sedia ada. Audit selepas pemasangan melaporkan 0 isu. |
 
+Semakan production selepas deployment turut mengesan `PROFILE_UNAVAILABLE` pada klien pelayan, walaupun JWT pengguna sah. Binding `SUPABASE_SERVICE_ROLE_KEY` production diselaraskan menggunakan kunci service-role yang disahkan daripada projek Supabase berkenaan, kemudian digunakan pada deployment baharu. Kunci tidak disimpan dalam kod atau laporan.
+
 ## Fungsi MRSM
 
 - 13 alat asal dikekalkan; Rancangan Prep MRSM dan Aktiviti Homeroom MRSM ditambah (15 keseluruhan).
@@ -41,7 +43,7 @@ Migrasi idempoten: `supabase/migrations/20261112_mrsm_security.sql`. `supabase/s
 
 ## Bukti pengujian
 
-- `npm test`: ujian regresi untuk semua 15 definisi alat, pengesahan input, prompt dipercayai, akses Pro, JWT, tarikh Malaysia, pengiraan markah, parser SSE, fallback, pemulangan kuota dan pembatalan.
+- `npm test`: 38 ujian regresi untuk semua 15 definisi alat, pengesahan input, prompt dipercayai, akses Pro, JWT, tarikh Malaysia, pengiraan markah, parser SSE, fallback, pemulangan kuota dan pembatalan.
 - Ujian SQL dalam transaksi yang di-rollback: pengasingan dua pengguna, larangan menukar pelan/kuota, dokumen silang akaun, had kuota, pemulangan berulang, pemulihan tempahan luput dan tarikh MYT. Pengguna sintetik dalam ujian tidak dikekalkan.
 - Ujian browser: login sebenar, 15 alat, profil tersimpan dan dimuat semula, sekatan Pro, Markdown selamat, salin/muat turun, simpan/buka/padam dokumen ujian, paparan hasil separa, cetakan dan laluan telefon/tablet.
 - Pendaftaran dan permintaan e-mel pemulihan diuji dengan respons terkawal; tiada e-mel ujian dihantar atau akaun baharu dibuat melalui browser.
