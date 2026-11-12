@@ -33,7 +33,7 @@ jobs:
           docker run --rm -v /tmp:/out -e URL="$SUPABASE_DB_URL" postgres:17-alpine \
             sh -c 'pg_dump "$URL" --format=custom --no-owner --no-privileges -f /out/gurukit-full.dump && pg_dump --version'
           test -s /tmp/gurukit-full.dump
-          pg_restore --list /tmp/gurukit-full.dump > /tmp/toc.txt
+          docker run --rm -v /tmp:/out postgres:17-alpine sh -c 'pg_restore --list /out/gurukit-full.dump > /out/toc.txt'
           grep -q 'PostgreSQL 17' /tmp/toc.txt || { echo 'dump bukan PG17'; exit 1; }
           echo "toc_objects=$(grep -cE '^[0-9]+;' /tmp/toc.txt)" >> "$GITHUB_ENV"
           ls -la /tmp/gurukit-full.dump
@@ -243,7 +243,7 @@ jobs:
             "/tmp/gurukit-roles-${DATE_TAG}.enc" \
             "/tmp/gurukit-authnote-${DATE_TAG}.enc"
           # dump mesti boleh dibaca pg_restore
-          pg_restore --list "/tmp/readback-gurukit-supabase-full-${DATE_TAG}.enc" > /tmp/readback-toc.txt
+          docker run --rm -v /tmp:/out postgres:17-alpine sh -c 'pg_restore --list /out/readback-gurukit-supabase-full-'"$DATE_TAG"'.enc > /out/readback-toc.txt'
           N=$(grep -cE '^[0-9]+;' /tmp/readback-toc.txt)
           echo "readback toc objects: $N"
           test "$N" -gt 0
