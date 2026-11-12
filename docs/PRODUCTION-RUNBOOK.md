@@ -58,7 +58,9 @@ Drill hanya mencipta PostgreSQL Docker sementara pada loopback, memuatkan schema
 
 Metadata janaan/log sekitar 30 hari, bucket rate 2 hari dan agregat operasi sehingga 90 hari dipangkas selepas backup berjaya. Dokumen, bank dan profil pengguna tidak dipadam berdasarkan umur. Permintaan pemadaman akaun perlu pengesahan pemilik dan semakan polisi backup.
 
-## SMTP Resend percuma — langkah operator yang masih diperlukan
+## SMTP Resend percuma — konfigurasi dan pengesahan
+
+**Status 12 November 2026:** domain `ghazwahgroup.com` dan semua rekod Resend disahkan. Supabase SMTP dikonfigurasi menggunakan `noreply@ghazwahgroup.com`; key production Vercel disimpan sebagai Sensitive. Penerimaan e-mel sebenar belum diuji. Langkah berikut ialah rujukan penyediaan semula, bukan senarai perkara yang semuanya masih tertangguh.
 
 1. Daftar akaun Resend. Tambah **ghazwahgroup.com**, atau benarkan skrip mengadakannya menggunakan key dengan akses setup domain. Free plan mempunyai had penghantaran; semak had semasa sebelum onboarding ramai guru.
 2. Masukkan **RESEND_API_KEY** dalam environment settings Codex secara selamat. Keperluan ini sudah ditambah dalam draf. Review, Save, kemudian Publish environment apabila chat setup idle supaya binding tersedia; simpanan draf sahaja tidak menyuntik key ke proses semasa.
