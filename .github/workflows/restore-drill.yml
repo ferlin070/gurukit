@@ -211,7 +211,7 @@ jobs:
           grep -iE 'error|denied' /tmp/preclean.log || echo 'tiada ralat preclean'
           set -e
           # PASS 1: data auth.users dahulu (jadual lain ada FK ke users)
-          grep 'TABLE DATA auth users' /tmp/filtered-toc.txt > /tmp/toc-users.txt || true
+          grep -E 'TABLE DATA .* auth users' /tmp/filtered-toc.txt > /tmp/toc-users.txt || true
           test -s /tmp/toc-users.txt
           docker run --rm -i -v /tmp:/out -e URL="$DRILL_DB_URL" postgres:17-alpine \
             sh -c 'pg_restore -d "$URL" --use-list=/out/toc-users.txt --no-owner --no-privileges /out/gurukit-full.dump' > /tmp/restore-users.log 2>&1 || true
