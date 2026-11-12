@@ -34,9 +34,8 @@ jobs:
             sh -c 'pg_dump "$URL" --format=custom --no-owner --no-privileges -f /out/gurukit-full.dump && pg_dump --version'
           test -s /tmp/gurukit-full.dump
           docker run --rm -v /tmp:/out postgres:17-alpine sh -c 'pg_restore --list /out/gurukit-full.dump > /out/toc.txt'
-          head -8 /tmp/toc.txt
-          grep -qE 'PostgreSQL 1[5-9]' /tmp/toc.txt || { echo 'versi dump tidak dikenali'; head -20 /tmp/toc.txt; exit 1; }
-          grep -qE 'PostgreSQL 17' /tmp/toc.txt || { echo 'AMARAN: dump bukan PG17'; }
+          grep -qE 'pg_dump version: 1[5-9]' /tmp/toc.txt || { echo 'versi dump tidak dikenali'; head -20 /tmp/toc.txt; exit 1; }
+          grep -qE 'pg_dump version: 17' /tmp/toc.txt || { echo 'dump bukan PG17'; head -20 /tmp/toc.txt; exit 1; }
           echo "toc_objects=$(grep -cE '^[0-9]+;' /tmp/toc.txt)" >> "$GITHUB_ENV"
           ls -la /tmp/gurukit-full.dump
 
