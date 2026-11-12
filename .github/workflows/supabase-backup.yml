@@ -14,38 +14,51 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - name: Install PostgreSQL 17 client
-        run: |
-          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt noble-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-          wget -qO- https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo tee /etc/apt/trusted.gpg.d/pgdg.asc >/dev/null
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client-17
-          pg_dump --version
-
-      - name: Dump database (public + auth + storage schemas, roles excluded)
+      - name: Dump database (PostgreSQL 17 via docker, custom format)
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          pg_dump --version
-          pg_dump "$SUPABASE_DB_URL" \
-            --format=custom \
-            --no-owner --no-privileges \
-            --exclude-role=supabase_admin \
-            --exclude-role=postgres \
-            --exclude-role=authenticator \
-            --exclude-role=anon \
-            --exclude-role=authenticated \
-            --exclude-role=service_role \
-            --file=/tmp/gurukit-full.dump
+          # pg_dump mesti sepadan versi pelayan (17). Session pooler diperlukan
+          # (transaction pooler tidak menyokong pg_dump).
+          docker run --rm -v /tmp:/out -e URL="$SUPABASE_DB_URL" postgres:17-alpine \
+            sh -c 'pg_dump "$URL" --format=custom --no-owner --no-privileges -f /out/gurukit-full.dump && pg_dump --version'
           ls -la /tmp/gurukit-full.dump
 
-      - name: Export auth config snapshot
+      - name: Export roles + auth snapshot SQL
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          psql "$SUPABASE_DB_URL" -At -c \
-            "select jsonb_pretty(jsonb_build_object('exported_at', now(), 'auth_users_count', (select count(*) from auth.users), 'auth_config_note', 'SMTP/OAuth provider secrets and dashboard config NOT included - export separately', 'identities_count', (select count(*) from auth.identities), 'mfa_factors', (select count(*) from auth.mfa_factors)))" \
-            > /tmp/auth-config-note.json
+          cat > /tmp/roles.sql <<'SQL'
+          select 'CREATE ROLE "' || rolname || '";' as ddl
+          from pg_roles
+          where rolname not in (
+            'postgres','authenticator','anon','authenticated','service_role',
+            'supabase_admin','supabase_auth_admin','supabase_storage_admin',
+            'supabase_realtime_admin','pgbouncer','pg_read_all_data','pg_write_all_data'
+          )
+          and rolname not like 'pg_%'
+          order by rolname;
+          SQL
+          docker run --rm -v /tmp:/out -e URL="$SUPABASE_DB_URL" postgres:17-alpine \
+            psql "$URL" -At -f /dev/stdin < /tmp/roles.sql > /out/roles-snapshot.txt || true
+          wc -l /tmp/roles-snapshot.txt || true
+
+      - name: Export auth/config metadata note
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          cat > /tmp/note.sql <<'SQL'
+          select jsonb_pretty(jsonb_build_object(
+            'exported_at', now(),
+            'auth_users_count', (select count(*) from auth.users),
+            'auth_identities_count', (select count(*) from auth.identities),
+            'mfa_factors_count', (select count(*) from auth.mfa_factors),
+            'storage_buckets', (select jsonb_agg(name) from storage.buckets),
+            'note', 'SMTP credentials, OAuth provider client secrets, redirect URLs dan tetapan dashboard Auth TIDAK termasuk dalam dump DB - eksport berasingan dari dashboard.'
+          ));
+          SQL
+          docker run --rm -v /tmp:/out -e URL="$SUPABASE_DB_URL" postgres:17-alpine \
+            psql "$URL" -At -f /dev/stdin < /tmp/note.sql > /out/auth-note.json
 
       - name: Encrypt (AES-256-GCM)
         env:
@@ -65,11 +78,12 @@ jobs:
             console.log(f + '.enc', out.length, 'bytes');
           }
           EOF
-          node /tmp/encrypt.mjs /tmp/gurukit-full.dump /tmp/auth-config-note.json
+          node /tmp/encrypt.mjs /tmp/gurukit-full.dump /tmp/roles-snapshot.txt /tmp/auth-note.json
           DATE=$(date -u +%F)
           mv /tmp/gurukit-full.dump.enc "/tmp/gurukit-supabase-full-${DATE}.enc"
-          mv /tmp/auth-config-note.json.enc "/tmp/gurukit-authnote-${DATE}.enc"
-          sha256sum /tmp/gurukit-supabase-full-${DATE}.enc /tmp/gurukit-authnote-${DATE}.enc > /tmp/checksums.txt
+          mv /tmp/roles-snapshot.txt.enc "/tmp/gurukit-roles-${DATE}.enc"
+          mv /tmp/auth-note.json.enc "/tmp/gurukit-authnote-${DATE}.enc"
+          sha256sum /tmp/gurukit-*.enc > /tmp/checksums.txt
           cat /tmp/checksums.txt
 
       - name: Upload to Google Drive
@@ -79,6 +93,7 @@ jobs:
           DRIVE_REFRESH_TOKEN: ${{ secrets.GOOGLE_DRIVE_REFRESH_TOKEN }}
         run: |
           cat > /tmp/drive-upload.mjs <<'EOF'
+          import { readFileSync } from 'node:fs';
           const cid = process.env.DRIVE_CLIENT_ID;
           const cs = process.env.DRIVE_CLIENT_SECRET;
           const rt = process.env.DRIVE_REFRESH_TOKEN;
@@ -104,44 +119,22 @@ jobs:
             const meta = { name: f.split('/').pop(), parents: [folderId] };
             const fd = new FormData();
             fd.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
-            fd.append('file', new Blob([await import('node:fs').then(fs => fs.readFileSync(f))]));
+            fd.append('file', new Blob([readFileSync(f)]));
             const up = await (await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,size', {
               method: 'POST', headers: { Authorization: `Bearer ${at}` }, body: fd
             })).json();
+            if (!up.id) throw new Error('upload gagal: ' + JSON.stringify(up).slice(0, 200));
             console.log('uploaded', meta.name, JSON.stringify(up));
           }
           EOF
           DATE=$(date -u +%F)
-          node /tmp/drive-upload.mjs "/tmp/gurukit-supabase-full-${DATE}.enc" "/tmp/gurukit-authnote-${DATE}.enc"
-
-      - name: Retention (simpan 7 harian + 4 mingguan Supabase)
-        env:
-          DRIVE_CLIENT_ID: ${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}
-          DRIVE_CLIENT_SECRET: ${{ secrets.GOOGLE_DRIVE_CLIENT_SECRET }}
-          DRIVE_REFRESH_TOKEN: ${{ secrets.GOOGLE_DRIVE_REFRESH_TOKEN }}
-        run: |
-          cat > /tmp/drive-retention.mjs <<'EOF'
-          const cid = process.env.DRIVE_CLIENT_ID, cs = process.env.DRIVE_CLIENT_SECRET, rt = process.env.DRIVE_REFRESH_TOKEN;
-          const tok = await (await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: cid, client_secret: cs, refresh_token: rt, grant_type: 'refresh_token' }) })).json();
-          const at = tok.access_token;
-          const q = encodeURIComponent("'FOLDER_ID_PLACEHOLDER' in parents and name startsWith 'gurukit-supabase-full-' and trashed = false");
-          const r = await (await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,createdTime)&orderBy=createdTime desc&pageSize=100`, { headers: { Authorization: `Bearer ${at}` } })).json();
-          const files = (r.files || []).sort((a, b) => b.createdTime.localeCompare(a.createdTime));
-          // sahkan fail hari ini wujud sebelum retensi
-          const today = new Date().toISOString().slice(0, 10);
-          if (!files.some(f => f.name.includes(today))) throw new Error('Backup hari ini tidak dijumpai - retensi dibatalkan');
-          for (const f of files.slice(7)) {
-            await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}`, { method: 'PATCH', headers: { Authorization: `Bearer ${at}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) });
-            console.log('trashed', f.name);
-          }
-          EOF
-          echo "retention: fail >7 hari ditandakan trashed (folder dikekalkan)"
+          node /tmp/drive-upload.mjs "/tmp/gurukit-supabase-full-${DATE}.enc" "/tmp/gurukit-roles-${DATE}.enc" "/tmp/gurukit-authnote-${DATE}.enc" /tmp/checksums.txt
 
       - name: Summary
         if: always()
         run: |
-          echo "## Supabase backup run" >> $GITHUB_STEP_SUMMARY
-          echo "- Tarikh: $(date -u +%F)" >> $GITHUB_STEP_SUMMARY
-          echo "- Skop: schema public + auth + storage (data), roles sistem dikecualikan" >> $GITHUB_STEP_SUMMARY
+          echo "## Supabase backup run $(date -u +%F)" >> $GITHUB_STEP_SUMMARY
+          echo "- Dump: pg_dump 17 (custom format), schema public + auth + storage" >> $GITHUB_STEP_SUMMARY
           echo "- Enkripsi: AES-256-GCM sebelum upload" >> $GITHUB_STEP_SUMMARY
           echo "- Destinasi: Google Drive / GuruKit Backups" >> $GITHUB_STEP_SUMMARY
+          echo "- Pengecualian: role password hash, SMTP/OAuth auth config (dashboard), fail Storage S3" >> $GITHUB_STEP_SUMMARY
