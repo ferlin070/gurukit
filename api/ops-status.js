@@ -1,3 +1,4 @@
+import { driveConfigured } from "../server/drive-backup.js";
 import {
   operationalClient,
   secretMatches,
@@ -22,6 +23,7 @@ export default async function status(req, res) {
       ),
       backupConfigured: Boolean(process.env.BACKUP_ENCRYPTION_KEY),
       backupScope: "application-data-only",
+      googleDriveConfigured: driveConfigured(),
     });
   } catch {
     return res.status(503).json({ error: "UNAVAILABLE" });

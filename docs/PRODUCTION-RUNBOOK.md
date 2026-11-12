@@ -58,6 +58,10 @@ Drill hanya mencipta PostgreSQL Docker sementara pada loopback, memuatkan schema
 
 Metadata janaan/log sekitar 30 hari, bucket rate 2 hari dan agregat operasi sehingga 90 hari dipangkas selepas backup berjaya. Dokumen, bank dan profil pengguna tidak dipadam berdasarkan umur. Permintaan pemadaman akaun perlu pengesahan pemilik dan semakan polisi backup.
 
+## Salinan offsite Google Drive
+
+Integrasi Gmail biasa disediakan secara opsyenal. Ia belum aktif sehingga tiga binding OAuth tersedia dan muat naik sebenar disahkan. Lihat [panduan Google Drive](GOOGLE-DRIVE-BACKUP.md) untuk consent, skop `drive.file`, 7 salinan harian/4 mingguan dan drill offsite. Backup Supabase sedia ada tidak bergantung pada sambungan ini.
+
 ## SMTP Resend percuma — konfigurasi dan pengesahan
 
 **Status 12 November 2026:** domain `ghazwahgroup.com` dan semua rekod Resend disahkan. Supabase SMTP dikonfigurasi menggunakan `noreply@ghazwahgroup.com`; key production Vercel disimpan sebagai Sensitive. Penerimaan e-mel sebenar belum diuji. Langkah berikut ialah rujukan penyediaan semula, bukan senarai perkara yang semuanya masih tertangguh.

@@ -1,5 +1,6 @@
 import { encryptSnapshot, decryptSnapshot, snapshotDigest } from "./backup.js";
 import { recordEvent } from "./operational.js";
+import { driveConfigured, mirrorDriveBackup } from "./drive-backup.js";
 import { malaysiaDate } from "../src/data/mrsm.js";
 export const BACKUP_BUCKET = "gurukit-backups";
 export async function sendAlert(code, env = process.env) {
@@ -22,12 +23,50 @@ export async function sendAlert(code, env = process.env) {
   });
   return response.ok;
 }
-export async function runOperations(admin, env = process.env) {
+export async function runOperations(
+  admin,
+  env = process.env,
+  mirrorImpl = mirrorDriveBackup,
+) {
+  async function offsite(encrypted) {
+    try {
+      const result = await mirrorImpl(encrypted, day, env);
+      if (result.status === "verified")
+        await recordEvent(admin, {
+          event: "backup_ok",
+          code: "DRIVE_VERIFIED",
+        });
+      return result;
+    } catch {
+      await recordEvent(admin, {
+        event: "backup_error",
+        code: "DRIVE_BACKUP_FAILED",
+      });
+      await sendAlert("DRIVE_BACKUP_FAILED", env).catch(() => false);
+      return { status: "failed", code: "DRIVE_BACKUP_FAILED" };
+    }
+  }
   if (!env.BACKUP_ENCRYPTION_KEY) throw new Error("BACKUP_KEY_REQUIRED");
   const day = malaysiaDate();
   const claim = await admin.rpc("claim_operations_run", { p_date: day });
   if (claim.error) throw new Error("OPERATIONS_UNAVAILABLE");
-  if (!claim.data) return { status: "already_claimed", day };
+  if (!claim.data) {
+    if (!driveConfigured(env)) return { status: "already_claimed", day };
+    const existing = await admin.storage
+      .from(BACKUP_BUCKET)
+      .download(`app-${day}.enc`);
+    if (existing.error)
+      return {
+        status: "already_claimed",
+        day,
+        offsite: { status: "primary_not_available" },
+      };
+    return {
+      status: "already_claimed",
+      day,
+      offsite: await offsite(Buffer.from(await existing.data.arrayBuffer())),
+    };
+  }
   try {
     const snapshot = await admin.rpc("application_backup_snapshot");
     if (snapshot.error || !snapshot.data) throw new Error("SNAPSHOT_FAILED");
@@ -91,6 +130,7 @@ export async function runOperations(admin, env = process.env) {
       day,
       verified: true,
       encryptedBytes: encrypted.length,
+      offsite: await offsite(encrypted),
       scope: "application-data-only",
     };
   } catch (error) {

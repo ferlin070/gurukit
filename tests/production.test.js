@@ -268,3 +268,42 @@ test("health is unavailable on database failure and degraded at attempt budget",
     assert.equal(res.statusCode, 503);
   }
 });
+
+test("Drive failure preserves the verified primary backup and reports offsite failure", async () => {
+  const f = mockOperations();
+  const result = await runOperations(
+    f.admin,
+    { BACKUP_ENCRYPTION_KEY: key },
+    async () => {
+      throw Error("PRIVATE_GOOGLE_RESPONSE");
+    },
+  );
+  assert.equal(result.verified, true);
+  assert.equal(result.offsite.status, "failed");
+  assert.deepEqual(f.states, ["completed"]);
+  assert.ok(!JSON.stringify(result).includes("PRIVATE_GOOGLE_RESPONSE"));
+});
+test("Drive retries a completed primary snapshot without creating another snapshot or ciphertext", async () => {
+  const options = {},
+    f = mockOperations(options),
+    env = {
+      BACKUP_ENCRYPTION_KEY: key,
+      GOOGLE_DRIVE_CLIENT_ID: "id",
+      GOOGLE_DRIVE_CLIENT_SECRET: "secret",
+      GOOGLE_DRIVE_REFRESH_TOKEN: "refresh",
+    };
+  const captures = [];
+  const mirror = async (bytes) => {
+    captures.push(Buffer.from(bytes));
+    return { status: "verified" };
+  };
+  await runOperations(f.admin, env, mirror);
+  const stored = f.getStored();
+  options.already = true;
+  const result = await runOperations(f.admin, env, mirror);
+  assert.equal(result.status, "already_claimed");
+  assert.equal(result.offsite.status, "verified");
+  assert.deepEqual(captures[0], captures[1]);
+  assert.deepEqual(stored, f.getStored());
+  assert.deepEqual(f.states, ["completed"]);
+});
