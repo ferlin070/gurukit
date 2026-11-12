@@ -135,7 +135,7 @@ jobs:
             echo "$UNEXPECTED"
             exit 1
           fi
-          echo "ralat extension/role terurus sahaja - diterima ($(grep -cE 'pg_restore: (error|warning)' /tmp/local-restore.log || echo 0) entri)
+          echo "ralat extension/role terurus sahaja - diterima ($(grep -cE 'pg_restore: (error|warning)' /tmp/local-restore.log || echo 0) entri)"
           cat > /tmp/manifest.sql <<'SQL'
           select table_schema || '.' || table_name || '=' || (
             select count(*) from (
