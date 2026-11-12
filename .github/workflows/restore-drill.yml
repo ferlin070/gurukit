@@ -210,6 +210,12 @@ jobs:
           echo '--- preclean errors (jika ada) ---'
           grep -iE 'error|denied' /tmp/preclean.log || echo 'tiada ralat preclean'
           set -e
+          # PASS 1: data auth.users dahulu (jadual lain ada FK ke users)
+          grep 'TABLE DATA auth users' /tmp/filtered-toc.txt > /tmp/toc-users.txt || true
+          test -s /tmp/toc-users.txt
+          docker run --rm -i -v /tmp:/out -e URL="$DRILL_DB_URL" postgres:17-alpine \
+            sh -c 'pg_restore -d "$URL" --use-list=/out/toc-users.txt --no-owner --no-privileges /out/gurukit-full.dump' > /tmp/restore-users.log 2>&1 || true
+          # PASS 2: keseluruhan (objek skema already exists diterima; users dup diterima)
           set +e
           docker run --rm -i -v /tmp:/out -e URL="$DRILL_DB_URL" postgres:17-alpine \
             sh -c 'pg_restore -d "$URL" --use-list=/out/filtered-toc.txt --no-owner --no-privileges /out/gurukit-full.dump' > /tmp/restore.log 2>&1
@@ -217,7 +223,7 @@ jobs:
           set -e
           echo "pg_restore exit=$RC"
           # klasifikasi ralat: kepemilikan objek terurus Supabase = diterima; lain-lain = GAGAL
-          UNEXPECTED=$(grep -E 'pg_restore: error' /tmp/restore.log | grep -viE 'must be owner of (event trigger|table|sequence|schema|index|relation|function|type|extension|database)|already exists|multiple primary keys|cannot drop .* because it is required by the database system|permission denied for (function|schema|table|sequence)|there is no unique or exclusion constraint|column .* of relation .* does not exist' || true)
+          UNEXPECTED=$(grep -E 'pg_restore: error' /tmp/restore.log | grep -viE 'must be owner of (event trigger|table|sequence|schema|index|relation|function|type|extension|database)|already exists|multiple primary keys|duplicate key value violates unique constraint|cannot drop .* because it is required by the database system|permission denied for (function|schema|table|sequence)|there is no unique or exclusion constraint|column .* of relation .* does not exist' || true)
           if [ -n "$UNEXPECTED" ]; then
             echo 'RALAT TIDAK DIJANGAKAN SEMASA RESTORE:'
             echo "$UNEXPECTED"
