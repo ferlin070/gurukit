@@ -116,13 +116,26 @@ jobs:
           fi
           docker exec drill-local psql -U postgres -c 'CREATE DATABASE gurukit;' > /dev/null
           docker cp /tmp/gurukit-full.dump drill-local:/tmp/gurukit-full.dump
+          # role Supabase diperlukan oleh polisi/ACL - cipta dummy (ikut panduan Supabase)
+          docker exec drill-local psql -U postgres -d gurukit -v ON_ERROR_STOP=0 -c \
+            "do \$\$ begin
+               for r in select unnest(array['anon','authenticated','service_role','authenticator','supabase_auth_admin','supabase_storage_admin','supabase_realtime_admin','supabase_admin','supabase_functions_admin','supabase_replication_admin','pgbouncer']) loop
+                 execute format('CREATE ROLE %I NOLOGIN', r);
+               end loop;
+             end \$\$;"
           set +e
           docker exec drill-local pg_restore -U postgres -d gurukit --no-owner --no-privileges /tmp/gurukit-full.dump > /tmp/local-restore.log 2>&1
           RC=$?
           set -e
-          echo "pg_restore local exit=$RC (ralat kepemilikan dijangka sifar pada Postgres biasa)"
-          cat /tmp/local-restore.log
-          if [ "$RC" -ne 0 ]; then echo 'LOCAL RESTORE GAGAL - dump rosak'; exit 1; fi
+          echo "pg_restore local exit=$RC"
+          # ralat diterima: objek extension/terurus Supabase yang tidak wujud di Postgres biasa
+          UNEXPECTED=$(grep -E 'pg_restore: error' /tmp/local-restore.log | grep -viE 'must be owner|already exists|role .* does not exist|schema .* does not exist|extension .* is not available|cannot drop|event trigger|does not have a valid extension|no schema has been selected' || true)
+          if [ -n "$UNEXPECTED" ]; then
+            echo 'RALAT TIDAK DIJANGAKAN SEMASA LOCAL RESTORE:'
+            echo "$UNEXPECTED"
+            exit 1
+          fi
+          echo "ralat extension/role terurus sahaja - diterima ($(grep -cE 'pg_restore: (error|warning)' /tmp/local-restore.log || echo 0) entri)
           cat > /tmp/manifest.sql <<'SQL'
           select table_schema || '.' || table_name || '=' || (
             select count(*) from (
