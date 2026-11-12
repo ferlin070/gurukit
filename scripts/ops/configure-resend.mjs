@@ -46,21 +46,28 @@ const existing = await request(
   process.env.VERCEL_TOKEN,
 );
 for (const record of details.records || []) {
+  const normalizedValue = (value) =>
+    ["MX", "CNAME"].includes(record.type)
+      ? value.toLowerCase().replace(/\.$/, "")
+      : value;
   let name = record.name.replace(
     new RegExp("\\." + domain.replace(/\./g, "\\.") + "$"),
     "",
   );
-  if (
-    !["send", "resend._domainkey"].includes(name) ||
-    !["TXT", "MX"].includes(record.type)
-  )
+  if (!(
+    (name === "send" && ["TXT", "MX"].includes(record.type)) ||
+    (name === "resend._domainkey" && record.type === "TXT") ||
+    (name === "rsend" && record.type === "CNAME")
+  ))
     throw new Error(
       "Unexpected DNS record; review manually. No root MX/A records are changed.",
     );
   if (
     existing.records.some(
       (x) =>
-        x.name === name && x.type === record.type && x.value === record.value,
+        x.name === name &&
+        x.type === record.type &&
+        normalizedValue(x.value) === normalizedValue(record.value),
     )
   )
     continue;

@@ -62,7 +62,7 @@ Metadata janaan/log sekitar 30 hari, bucket rate 2 hari dan agregat operasi sehi
 
 1. Daftar akaun Resend. Tambah **ghazwahgroup.com**, atau benarkan skrip mengadakannya menggunakan key dengan akses setup domain. Free plan mempunyai had penghantaran; semak had semasa sebelum onboarding ramai guru.
 2. Masukkan **RESEND_API_KEY** dalam environment settings Codex secara selamat. Keperluan ini sudah ditambah dalam draf. Review, Save, kemudian Publish environment apabila chat setup idle supaya binding tersedia; simpanan draf sahaja tidak menyuntik key ke proses semasa.
-3. Jalankan `node scripts/ops/configure-resend.mjs` dengan binding Vercel dan Supabase sedia ada. Skrip hanya menambah rekod Resend untuk `send` dan `resend._domainkey`, tidak menggantikan A/ALIAS/MX root. Konflik DNS dihentikan untuk semakan. DNS DMARC asas `p=none` sudah disediakan; ini belum polisi penolakan/quarantine.
+3. Jalankan `node scripts/ops/configure-resend.mjs` dengan binding Vercel dan Supabase sedia ada. Skrip hanya menambah rekod Resend untuk `send`, `resend._domainkey` dan CNAME `rsend`, tidak menggantikan A/ALIAS/MX root. Konflik DNS dihentikan untuk semakan. DNS DMARC asas `p=none` sudah disediakan; ini belum polisi penolakan/quarantine.
 4. Selepas domain Resend berstatus verified, skrip menetapkan SMTP Supabase (`smtp.resend.com`, port 465, pengguna `resend`, sender `noreply@ghazwahgroup.com`) dan menyimpan key alert ke Vercel. Deploy semula Vercel untuk mengaktifkan alert. Jangan aktifkan SMTP dengan domain belum disahkan.
 5. Buat ujian pengesahan/pemulihan dan periksa penerimaan sebenar, bukan sekadar respons API. Tiada e-mel ujian dihantar secara automatik oleh skrip setup. Penerima operator telah ditetapkan kepada `ghazwahgroup@gmail.com`.
 
