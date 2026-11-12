@@ -214,6 +214,12 @@ jobs:
           docker run --rm -i -v /tmp:/out -e URL="$DRILL_DB_URL" postgres:17-alpine \
             sh -c 'pg_restore -d "$URL" --use-list=/out/toc-users.txt --no-owner --no-privileges /out/gurukit-full.dump' > /tmp/restore-users.log 2>&1 || true
           tail -3 /tmp/restore-users.log || true
+          echo '--- pass1b: data auth.sessions ---'
+          grep -E 'TABLE DATA (.* )?auth sessions' /tmp/filtered-toc.txt > /tmp/toc-sessions.txt || true
+          test -s /tmp/toc-sessions.txt
+          docker run --rm -i -v /tmp:/out -e URL="$DRILL_DB_URL" postgres:17-alpine \
+            sh -c 'pg_restore -d "$URL" --use-list=/out/toc-sessions.txt --no-owner --no-privileges /out/gurukit-full.dump' > /tmp/restore-sessions.log 2>&1 || true
+          tail -3 /tmp/restore-sessions.log || true
           echo '--- pass2: keseluruhan ---'
           set +e
           docker run --rm -i -v /tmp:/out -e URL="$DRILL_DB_URL" postgres:17-alpine \
