@@ -126,8 +126,8 @@ jobs:
           [ -n "$ACCESS" ] || { cat /tmp/login.json; exit 1; }
           echo "LOGIN OK - hash kata laluan terpulihara & GoTrue berfungsi"
           # 3) padam akaun ujian
-          UID=$(node -e "console.log(JSON.parse(require('fs').readFileSync('/tmp/create.json')).id)")
-          curl -s -X DELETE "https://$REF.supabase.co/auth/v1/admin/users/$UID" \
+          TEST_UID=$(node -e "console.log(JSON.parse(require('fs').readFileSync('/tmp/create.json')).id)")
+          curl -s -X DELETE "https://$REF.supabase.co/auth/v1/admin/users/$TEST_UID" \
             -H "apikey: $DRILL_SERVICE_ROLE" -H "Authorization: Bearer $DRILL_SERVICE_ROLE" > /dev/null
           echo "test user dibersihkan"
 
