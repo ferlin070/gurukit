@@ -28,7 +28,7 @@ export default function Privacy() {
       <p>
         Dokumen dan bank soalan boleh dipadam melalui akaun cikgu. Data yang
         disimpan tidak dipadam secara automatik mengikut umur. Metadata operasi
-        disimpan sekitar 30 hari; backup aplikasi terenkripsi disimpan secara
+        disimpan sekitar 30 hari dan agregat operasi sehingga 90 hari; backup aplikasi terenkripsi disimpan secara
         berputar sehingga 7 hari. Data yang dipadam mungkin masih terdapat dalam
         backup sepanjang tempoh itu. Backup ini tidak menggantikan backup penuh
         pangkalan data atau akaun pengesahan.

@@ -2135,3 +2135,9 @@ fieldset:disabled {
 .footer a {
   color: #6c4c83;
 }
+
+.policy-page p a,
+.policy-page li a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
