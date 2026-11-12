@@ -109,7 +109,7 @@ jobs:
           # 1) cipta akaun ujian melalui admin API (service_role)
           TEST_EMAIL="restore-drill-$(date +%s)@ghazwahgroup.com"
           TEST_PW="Dr1ll-$(openssl rand -hex 8)!"
-          CREATE=$(curl -s -o /tmp/create.json -w '%{http_code}' -X PUT \
+          CREATE=$(curl -s -o /tmp/create.json -w '%{http_code}' -X POST \
             "https://$REF.supabase.co/auth/v1/admin/users" \
             -H "apikey: $DRILL_SERVICE_ROLE" -H "Authorization: Bearer $DRILL_SERVICE_ROLE" \
             -H 'Content-Type: application/json' \
