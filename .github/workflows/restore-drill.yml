@@ -68,7 +68,7 @@ jobs:
           DRILL_DB_URL: ${{ secrets.DRILL_DB_URL }}
         run: |
           docker run --rm -i -v /tmp:/out -e URL="$DRILL_DB_URL" postgres:17-alpine \
-            sh -c 'pg_restore --version && pg_restore -d "$URL" --no-owner --no-privileges /out/gurukit-full.dump; echo "exit=$?"' 2>&1 | tee /tmp/restore.log
+            sh -c 'pg_restore --version && pg_restore -d "$URL" --clean --if-exists --no-owner --no-privileges /out/gurukit-full.dump; echo "exit=$?"' 2>&1 | tee /tmp/restore.log
           # ralat yang boleh diterima: sambungan ke objek sistem/role yang tidak wujud
           ! grep -qE 'FATAL' /tmp/restore.log
 
