@@ -10,19 +10,24 @@ export default function Signup() {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirmation, setConfirmation] = useState(false);
 
   const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const onSubmit = async (e) => {
     e.preventDefault();
-    if (form.password.length < 6) {
-      setError("Kata laluan mesti sekurang-kurangnya 6 aksara.");
+    if (form.password.length < 8) {
+      setError("Kata laluan mesti sekurang-kurangnya 8 aksara.");
       return;
     }
     setError("");
     setBusy(true);
     try {
-      await signup(form);
+      const result = await signup(form);
+      if (result.requiresConfirmation) {
+        setConfirmation(true);
+        return;
+      }
       navigate("/dashboard", { replace: true });
     } catch (err) {
       setError(err.message);
@@ -47,6 +52,12 @@ export default function Signup() {
           <StudioArt />
         </div>
         <div className="auth-fields">
+          {confirmation && (
+            <p role="status" className="success-message">
+              Pendaftaran diterima. Jika alamat layak didaftarkan, sila semak
+              e-mel pengesahan sebelum log masuk.
+            </p>
+          )}
           {error && (
             <div role="alert" className="alert alert-error">
               {error}
@@ -79,7 +90,7 @@ export default function Signup() {
             value={form.password}
             onChange={onChange}
             autoComplete="new-password"
-            minLength={6}
+            minLength={8}
           />
           <button className="btn btn-primary btn-block" disabled={busy}>
             {busy ? "Sedang mendaftar…" : "Cipta akaun percuma →"}

@@ -7,7 +7,7 @@ export default function Landing() {
     <div className="landing">
       <section className="hero">
         <div className="hero-copy">
-          <span className="pill">✦ Dicipta untuk guru Malaysia</span>
+          <span className="pill">✦ Dicipta untuk guru MRSM</span>
           <h1>
             Idea cikgu.
             <br />
@@ -15,8 +15,8 @@ export default function Landing() {
           </h1>
           <p className="hero-sub">
             Dari RPH hingga pentaksiran, jadikan persediaan mengajar lebih
-            ringan. 13 alat AI dalam satu ruang kreatif, mengikut KSSM dan DSKP,
-            dalam Bahasa Melayu.
+            ringan. {TOOLS.length} alat AI dalam satu ruang kreatif, mengikut
+            KSSM dan DSKP, dalam Bahasa Melayu atau Bahasa Inggeris untuk DLP.
           </p>
           <div className="hero-cta">
             <Link to="/signup" className="btn btn-primary btn-lg">

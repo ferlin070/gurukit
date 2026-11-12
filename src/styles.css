@@ -1519,3 +1519,380 @@ main {
 .back-link {
   color: #705780;
 }
+/* MRSM teaching workspace */
+.mrsm-context-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem;
+  margin: -0.2rem 0 1.25rem;
+  border: 1px solid #e4d5ec;
+  border-radius: 15px;
+  background: #f4edf7;
+  font-size: 0.75rem;
+  color: #665074;
+}
+.mrsm-context-strip a {
+  font-weight: 700;
+}
+.teaching-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 1rem;
+}
+.teaching-fields .field-wide {
+  grid-column: 1/-1;
+}
+.context-details {
+  margin: 1.25rem 0;
+  border: 1px solid #decfe7;
+  border-radius: 16px;
+  padding: 1rem;
+  background: #fbf6fc;
+}
+.context-details summary {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #674b80;
+  cursor: pointer;
+}
+.context-details[open] summary {
+  margin-bottom: 1rem;
+}
+.context-note,
+.privacy-note,
+.generation-status {
+  font-size: 0.75rem;
+  line-height: 1.7;
+  color: #6d5879;
+}
+.privacy-note {
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: #f5edf8;
+}
+.success-message {
+  border: 1px solid #b3d5bd;
+  background: #ecf7ee;
+  color: #315e3e;
+  border-radius: 14px;
+  padding: 0.8rem;
+  font-size: 0.85rem;
+}
+.notice {
+  background: #fbefd7;
+  border: 1px solid #ead4a5;
+  border-radius: 16px;
+  padding: 1rem;
+  margin: 1rem 0;
+  font-size: 0.85rem;
+  color: #725926;
+}
+.stop-button {
+  margin-top: 0.75rem;
+}
+.save-document {
+  border-top: 1px solid #e5d5eb;
+  padding-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+.save-document label {
+  width: 100%;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.save-document input,
+.document-list input {
+  width: 100%;
+  display: block;
+  background: #fffaf5;
+  border: 1px solid #ddcce5;
+  border-radius: 12px;
+  padding: 0.75rem;
+  margin: 0.5rem 0 1rem;
+  color: var(--text);
+}
+.save-document a {
+  font-size: 0.8rem;
+}
+.output.document-output {
+  font-family: inherit;
+  white-space: normal;
+  max-height: 720px;
+}
+.document-content {
+  font-size: 0.87rem;
+  line-height: 1.85;
+  overflow-wrap: anywhere;
+  color: #42334f;
+}
+.document-content h1 {
+  font-size: 1.5rem;
+}
+.document-content h2 {
+  font-size: 1.2rem;
+  margin-top: 1.6rem;
+}
+.document-content h3 {
+  font-size: 1rem;
+  margin-top: 1.2rem;
+}
+.document-content pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #eee5f4;
+  border-radius: 10px;
+  padding: 1rem;
+}
+.document-content table {
+  width: 100%;
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+  font-size: 0.8rem;
+  margin: 1rem 0;
+}
+.document-content th,
+.document-content td {
+  padding: 0.55rem;
+  border: 1px solid #d7c6e0;
+  text-align: left;
+}
+.document-content th {
+  background: #eee4f5;
+}
+.document-content blockquote {
+  border-left: 3px solid #ab87c9;
+  padding-left: 1rem;
+  margin-left: 0;
+  color: #705780;
+}
+.output-placeholder {
+  font-family: inherit;
+  white-space: normal;
+}
+.settings-page > .runner-form {
+  max-width: 850px;
+  margin-top: 1.5rem;
+}
+.documents-grid {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+.document-list label {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.document-list-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.9rem;
+  border: 1px solid #e7d8ee;
+  border-radius: 12px;
+  background: #fffaf5;
+  color: #624a75;
+  margin-bottom: 0.65rem;
+}
+.document-list-item.selected {
+  border-color: #9c75bf;
+  background: #efe4f7;
+}
+.document-list-item strong,
+.document-list-item span {
+  display: block;
+  font-size: 0.78rem;
+}
+.document-list-item span {
+  font-size: 0.65rem;
+  margin-top: 0.4rem;
+  color: #705d7d;
+}
+.document-toolbar h2 {
+  font-size: 1.3rem;
+}
+.document-toolbar {
+  border-bottom: 1px solid #e6d8eb;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+}
+.delete-confirm {
+  background: #fce9ea;
+  border: 1px solid #e6aeb5;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.8rem;
+}
+.mobile-tools {
+  display: none;
+}
+.recovery-card {
+  padding: 2rem;
+}
+.recovery-card .auth-alt {
+  margin-top: 1rem;
+}
+.forgot-password {
+  display: block;
+  text-align: right;
+  font-size: 0.75rem;
+  margin: -0.5rem 0 1rem;
+}
+.sidebar nav {
+  gap: 0.25rem;
+}
+.sidebar nav a {
+  padding: 0.75rem;
+}
+.sidebar-profile {
+  margin: 1.25rem 0;
+}
+.runner-output .generation-status {
+  margin: 0.6rem 0;
+}
+.output-actions {
+  flex-wrap: wrap;
+}
+@media (max-width: 1100px) {
+  .documents-grid {
+    grid-template-columns: 1fr;
+  }
+  .document-list {
+    max-height: 350px;
+    overflow: auto;
+  }
+}
+@media (max-width: 760px) {
+  .mobile-tools {
+    display: flex;
+    gap: 0.5rem;
+    margin: -0.25rem 0 1.5rem;
+    flex-wrap: wrap;
+  }
+  .mobile-tools a {
+    font-size: 0.75rem;
+    padding: 0.5rem 0.8rem;
+    border-radius: 12px;
+    border: 1px solid #dfcde8;
+    background: #fffaf5;
+    color: #765389;
+  }
+  .mobile-tools a.active {
+    background: #eadcf4;
+    border-color: #b795d0;
+  }
+  .teaching-fields {
+    grid-template-columns: 1fr;
+  }
+  .documents-grid {
+    grid-template-columns: 1fr;
+  }
+  .mrsm-context-strip {
+    font-size: 0.7rem;
+  }
+  .output.document-output {
+    max-height: 600px;
+  }
+}
+@media print {
+  @page {
+    size: A4;
+    margin: 18mm;
+  }
+  html,
+  body,
+  .workspace,
+  .signed-in .workspace,
+  .app-shell,
+  .signed-in {
+    background: white !important;
+    box-shadow: none !important;
+    display: block !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: black !important;
+  }
+  .sidebar,
+  .navbar,
+  .footer,
+  .mobile-tools,
+  .skip-link,
+  .tool-runner > .page-head,
+  .runner-form,
+  .output-head,
+  .save-document,
+  .generation-status,
+  .notice,
+  .alert,
+  .document-list,
+  .document-toolbar,
+  .documents-page > .page-head,
+  .delete-confirm {
+    display: none !important;
+  }
+  .workspace main {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  .runner-grid,
+  .documents-grid {
+    display: block !important;
+  }
+  .runner-output,
+  .document-preview,
+  .card {
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+  .output.document-output {
+    padding: 0 !important;
+    background: white !important;
+    border: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  .document-content {
+    color: black;
+    font-size: 11pt;
+  }
+  .document-content table {
+    display: table;
+    overflow: visible;
+    font-size: 10pt;
+  }
+  .document-content h1,
+  .document-content h2,
+  .document-content h3 {
+    break-after: avoid;
+  }
+  .document-content tr {
+    break-inside: avoid;
+  }
+  .document-content a {
+    color: black;
+  }
+}
+.mrsm-context-strip a {
+  color: #6b4b85;
+}
+.mrsm-shortcuts {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin: -0.25rem 0 1.25rem;
+}
+@media print {
+  .mrsm-shortcuts {
+    display: none !important;
+  }
+}

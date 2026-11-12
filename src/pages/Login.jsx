@@ -8,7 +8,12 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from?.pathname || "/dashboard";
+  const requested = location.state?.from?.pathname;
+  const from =
+    typeof requested === "string" &&
+    /^\/(dashboard|documents|settings|tools\/[a-z0-9-]+)$/.test(requested)
+      ? requested
+      : "/dashboard";
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -63,6 +68,9 @@ export default function Login() {
             />
           </label>
           <PasswordField value={form.password} onChange={onChange} />
+          <Link to="/forgot-password" className="forgot-password">
+            Lupa kata laluan?
+          </Link>
           <button className="btn btn-primary btn-block" disabled={busy}>
             {busy ? "Sedang log masuk…" : "Log masuk →"}
           </button>

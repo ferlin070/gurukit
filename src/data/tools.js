@@ -2,25 +2,67 @@
 // 13 modul alat AI guru Malaysia — Bahasa Melayu, kurikulum KSSM
 // Schema per tool: { id, name, icon, category, description, fields[], systemPrompt, buildPrompt(values) }
 
-const C_PENGAJARAN = 'Pengajaran & Pembelajaran';
-const C_PENTAKSIRAN = 'Pentaksiran';
-const C_PENGURUSAN = 'Pengurusan & Dokumen';
+const C_PENGAJARAN = "Pengajaran & Pembelajaran";
+const C_PENTAKSIRAN = "Pentaksiran";
+const C_PENGURUSAN = "Pengurusan & Dokumen";
 
 export const TOOLS = [
   {
-    id: 'rph-kssm',
-    plan: 'free',
-    name: 'Penjana RPH KSSM',
-    icon: '📋',
+    id: "rph-kssm",
+    plan: "free",
+    name: "Penjana RPH KSSM",
+    icon: "📋",
     category: C_PENGAJARAN,
-    description: 'Rancangan Pengajaran Harian lengkap mengikut format KSSM: standard kandungan, standard pembelajaran, aktiviti PdPc dan pentaksiran.',
+    description:
+      "Rancangan Pengajaran Harian lengkap mengikut format KSSM: standard kandungan, standard pembelajaran, aktiviti PdPc dan pentaksiran.",
     fields: [
-      { name: 'subjek', label: 'Subjek', type: 'text', placeholder: 'Bahasa Melayu Tingkatan 2', required: true },
-      { name: 'tahun', label: 'Tingkatan / Tahun', type: 'text', placeholder: 'Tingkatan 2 Cekap', required: true },
-      { name: 'tema', label: 'Tema / Bidang / Unit', type: 'text', placeholder: 'Unit 3: Warisan Bangsa' },
-      { name: 'skop', label: 'Skop Kandungan / Standard Pembelajaran', type: 'textarea', placeholder: 'Contoh: 2.1.1 Menyampaikan maklumat secara lisan…' },
-      { name: 'tempoh', label: 'Tempoh (minit)', type: 'select', options: ['30', '60', '90', '120'], default: '60' },
-      { name: 'kaedah', label: 'Kaedah Utama', type: 'select', options: ['Bengkel Kaedah', 'Inkuiri Penemuan', 'Berdasarkan Main', 'Projek', 'Demonstrasi', 'Perbincangan'], default: 'Bengkel Kaedah' },
+      {
+        name: "subjek",
+        label: "Subjek",
+        type: "text",
+        placeholder: "Bahasa Melayu Tingkatan 2",
+        required: true,
+      },
+      {
+        name: "tahun",
+        label: "Tingkatan / Tahun",
+        type: "text",
+        placeholder: "Tingkatan 2 Cekap",
+        required: true,
+      },
+      {
+        name: "tema",
+        label: "Tema / Bidang / Unit",
+        type: "text",
+        placeholder: "Unit 3: Warisan Bangsa",
+      },
+      {
+        name: "skop",
+        label: "Skop Kandungan / Standard Pembelajaran",
+        type: "textarea",
+        placeholder: "Contoh: 2.1.1 Menyampaikan maklumat secara lisan…",
+      },
+      {
+        name: "tempoh",
+        label: "Tempoh (minit)",
+        type: "select",
+        options: ["30", "60", "90", "120"],
+        default: "60",
+      },
+      {
+        name: "kaedah",
+        label: "Kaedah Utama",
+        type: "select",
+        options: [
+          "Bengkel Kaedah",
+          "Inkuiri Penemuan",
+          "Berdasarkan Main",
+          "Projek",
+          "Demonstrasi",
+          "Perbincangan",
+        ],
+        default: "Bengkel Kaedah",
+      },
     ],
     systemPrompt: `Anda ialah Pakar Rancangan Pengajaran Harian (RPH) yang berpengalaman lebih 15 tahun dalam sistem pendidikan Malaysia dan mahir Dokumen Standard Kurikulum dan Pentaksiran (DSKP) KSSM.
 
@@ -47,8 +89,8 @@ Nilai-nilai tersirat: RPH harus realistik untuk kelas 30–40 murid di sekolah M
 MAKLUMAT GURU:
 - Subjek: ${v.subjek}
 - Kelas/Tingkatan: ${v.tahun}
-- Tema/Bidang/Unit: ${v.tema || '(guru tidak nyatakan — cadangkan tema yang sesuai dengan subjek dan tingkatan)'}
-- Skop Kandungan / Standard Pembelajaran: ${v.skop || '(tiada skop diberi — pilih SK/SP yang munasabah dari DSKP untuk subjek dan tingkatan ini, tandakan sebagai cadangan)'}
+- Tema/Bidang/Unit: ${v.tema || "(guru tidak nyatakan — cadangkan tema yang sesuai dengan subjek dan tingkatan)"}
+- Skop Kandungan / Standard Pembelajaran: ${v.skop || "(tiada skop diberi — pilih SK/SP yang munasabah dari DSKP untuk subjek dan tingkatan ini, tandakan sebagai cadangan)"}
 - Tempoh: ${v.tempoh} minit
 - Kaedah Utama Pilihan Guru: ${v.kaedah}
 
@@ -56,20 +98,56 @@ INGAT: aktiviti mesti muat dalam ${v.tempoh} minit. Gunakan kaedah ${v.kaedah} s
   },
 
   {
-    id: 'soalan-peperiksaan',
-    plan: 'free',
-    name: 'Penjana Soalan Ujian',
-    icon: '📝',
+    id: "soalan-peperiksaan",
+    plan: "free",
+    name: "Penjana Soalan Ujian",
+    icon: "📝",
     category: C_PENTAKSIRAN,
-    description: 'Soalan ujian lengkap dengan skema pemarkahan — Objektif, Struktur, Esei dan KBAT, mengikut format KSSM.',
+    description:
+      "Soalan ujian lengkap dengan skema pemarkahan — Objektif, Struktur, Esei dan KBAT, mengikut format KSSM.",
     fields: [
-      { name: 'subjek', label: 'Subjek', type: 'text', placeholder: 'Sejarah Tingkatan 3', required: true },
-      { name: 'tajuk', label: 'Tajuk / Bab', type: 'textarea', placeholder: 'Bab 4: Rebak Baru Menyemai Azam' },
-      { name: 'format', label: 'Jenis Soalan', type: 'select', options: ['Objektif (A-D)', 'Struktur', 'Esei', 'KBAT', 'Campuran Penuh'], default: 'Campuran Penuh' },
-      { name: 'bilangan', label: 'Bilangan Soalan', type: 'text', placeholder: '10', default: '10' },
-      { name: 'arasan', label: 'Aras Kesukaran', type: 'select', options: ['Aras 1 (Mudah)', 'Campuran Aras 1-3', 'Berat (HOTS)'], default: 'Campuran Aras 1-3' },
+      {
+        name: "subjek",
+        label: "Subjek",
+        type: "text",
+        placeholder: "Sejarah Tingkatan 3",
+        required: true,
+      },
+      {
+        name: "tajuk",
+        label: "Tajuk / Bab",
+        type: "textarea",
+        placeholder: "Bab 4: Rebak Baru Menyemai Azam",
+      },
+      {
+        name: "format",
+        label: "Jenis Soalan",
+        type: "select",
+        options: [
+          "Objektif (A-D)",
+          "Struktur",
+          "Esei",
+          "KBAT",
+          "Campuran Penuh",
+        ],
+        default: "Campuran Penuh",
+      },
+      {
+        name: "bilangan",
+        label: "Bilangan Soalan",
+        type: "text",
+        placeholder: "10",
+        default: "10",
+      },
+      {
+        name: "arasan",
+        label: "Aras Kesukaran",
+        type: "select",
+        options: ["Aras 1 (Mudah)", "Campuran Aras 1-3", "Berat (HOTS)"],
+        default: "Campuran Aras 1-3",
+      },
     ],
-    systemPrompt: `Anda ialah Penyedia Soalan Peperiksaan berdaftar yang berpengalaman menulis kertas ujian sekolah Malaysia mengikut standard KSSM dan format SPM/LP.
+    systemPrompt: `Anda ialah Pembantu Penyediaan Soalan Peperiksaan yang berpengalaman menulis kertas ujian sekolah Malaysia mengikut standard KSSM dan format SPM/LP.
 
 Peraturan kerja anda, TANPA KECUALI:
 
@@ -90,21 +168,51 @@ DETAIL GURU:
 - Bilangan Soalan: ${v.bilangan}
 - Aras Kesukaran: ${v.arasan}
 
-Hasilkan PENUH: kertas soalan lengkap dengan arahan kertas, soalan bernombor, markah setiap soalan, aras soalan, dan kemudian skema pemarkahan penuh. ${v.format === 'Campuran Penuh' ? 'Untuk format campuran, hasilkan sekurang-kurangnya 40% objektif, 30% struktur dan 30% esei/KBAT daripada jumlah bilangan soalan yang diminta.' : ''}`,
+Hasilkan PENUH: kertas soalan lengkap dengan arahan kertas, soalan bernombor, markah setiap soalan, aras soalan, dan kemudian skema pemarkahan penuh. ${v.format === "Campuran Penuh" ? "Untuk format campuran, hasilkan sekurang-kurangnya 40% objektif, 30% struktur dan 30% esei/KBAT daripada jumlah bilangan soalan yang diminta." : ""}`,
   },
 
   {
-    id: 'pbd-rubrik',
-    plan: 'pro',
-    name: 'PBD & Rubrik Pentaksiran',
-    icon: '📊',
+    id: "pbd-rubrik",
+    plan: "pro",
+    name: "PBD & Rubrik Pentaksiran",
+    icon: "📊",
     category: C_PENTAKSIRAN,
-    description: 'Instrumen Pentaksiran Bilik Darjah (PBD) dengan rubrik berperingkat Taksonomi Band 1–6 dan bukti pembelajaran.',
+    description:
+      "Instrumen Pentaksiran Bilik Darjah (PBD) dengan rubrik berperingkat Taksonomi Band 1–6 dan bukti pembelajaran.",
     fields: [
-      { name: 'subjek', label: 'Subjek', type: 'text', placeholder: 'Sains Tingkatan 1', required: true },
-      { name: 'tugasan', label: 'Tugasan / Hasil Kerja Murid', type: 'textarea', placeholder: 'Laporan eksperimen: sifat logam dan bukan logam' },
-      { name: 'tahap', label: 'Tahap Penguasaan', type: 'select', options: ['TP1–TP6 (penuh)', 'TP3–TP4 sahaja', 'TP1–TP3 (murid lemah)'], default: 'TP1–TP6 (penuh)' },
-      { name: 'bukti', label: 'Jenis Bukti', type: 'select', options: ['Hasil Kerja', 'Pemerhatian', 'Lisan', 'Buku Nota', 'Portfolio'], default: 'Hasil Kerja' },
+      {
+        name: "subjek",
+        label: "Subjek",
+        type: "text",
+        placeholder: "Sains Tingkatan 1",
+        required: true,
+      },
+      {
+        name: "tugasan",
+        label: "Tugasan / Hasil Kerja Murid",
+        type: "textarea",
+        placeholder: "Laporan eksperimen: sifat logam dan bukan logam",
+      },
+      {
+        name: "tahap",
+        label: "Tahap Penguasaan",
+        type: "select",
+        options: ["TP1–TP6 (penuh)", "TP3–TP4 sahaja", "TP1–TP3 (murid lemah)"],
+        default: "TP1–TP6 (penuh)",
+      },
+      {
+        name: "bukti",
+        label: "Jenis Bukti",
+        type: "select",
+        options: [
+          "Hasil Kerja",
+          "Pemerhatian",
+          "Lisan",
+          "Buku Nota",
+          "Portfolio",
+        ],
+        default: "Hasil Kerja",
+      },
     ],
     systemPrompt: `Anda ialah Pegawai Pentaksiran yang pakar dalam Pentaksiran Bilik Darjah (PBD) KSSM dan Pentaksiran Bilik Darjah Boleh Dipercayai.
 
@@ -112,7 +220,7 @@ Tugasan anda: hasilkan instrumen PBD yang lengkap dan rubrik penguasaan yang BOL
 
 1. NYATAKAN TUJUAN PENTAKSIRAN dengan jelas — apakah standard pembelajaran (SP) yang dinilai, dan apa bukti yang dijangka.
 2. HASILKAN INSTRUMEN: soalan/tugasan/lembaran yang sesuai untuk mengumpul bukti. Jika tugasan guru sudah diberi, hasilkan senarai semak (checklist) penilaian bagi tugasan itu.
-3. HASILKAN RUBRIK penguasaan dalam format jadual dengan kolom: Kriteria | ${'{'}tahap{'}'} deskriptor setiap Tahap Penguasaan. Gunakan deskriptor TP yang sah:
+3. HASILKAN RUBRIK penguasaan dalam format jadual dengan kolom: Kriteria | ${"{"}tahap{'}'} deskriptor setiap Tahap Penguasaan. Gunakan deskriptor TP yang sah:
    - TP1: Tahu — murid tahu tetapi tidak dapat laksanakan tanpa bantuan penuh.
    - TP2: Tahu dan Faham — faham tetapi laksana dengan bantuan sebahagian.
    - TP3: Boleh Buat — laksanakan secara asas tanpa bantuan.
@@ -136,17 +244,53 @@ Keluarkan: (1) tujuan pentaksiran, (2) instrumen atau senarai semak, (3) rubrik 
   },
 
   {
-    id: 'pembetulan-karangan',
-    plan: 'free',
-    name: 'Pembetulan Karangan BM',
-    icon: '✒️',
+    id: "pembetulan-karangan",
+    plan: "free",
+    name: "Pembetulan Karangan BM",
+    icon: "✒️",
     category: C_PENTAKSIRAN,
-    description: 'Betulkan karangan Bahasa Melayu murid dengan e-pembetulan: kesalahan bertanda, komen guru dan rubrik markah.',
+    description:
+      "Betulkan karangan Bahasa Melayu murid dengan e-pembetulan: kesalahan bertanda, komen guru dan rubrik markah.",
     fields: [
-      { name: 'karangan', label: 'Teks Karangan Murid', type: 'textarea', placeholder: 'Tampal teks karangan murid di sini…', required: true },
-      { name: 'jenis', label: 'Jenis Karangan', type: 'select', options: ['Karangan Berpandukan Gambar', 'Karangan Terbuka', 'Surat Kiriman Rasmi', 'Ucapan', 'Laporan', 'Perbincangan'], default: 'Karangan Terbuka' },
-      { name: 'tingkatan', label: 'Tingkatan', type: 'text', placeholder: 'Tingkatan 3', default: 'Tingkatan 3' },
-      { name: 'gaya', label: 'Komen Gaya Guru', type: 'select', options: ['Tegas (Pembetulan Penuh)', 'Sederhana (Kesalahan Utama Sahaja)', 'Galakan (Kekuatan Dulu)'], default: 'Sederhana (Kesalahan Utama Sahaja)' },
+      {
+        name: "karangan",
+        label: "Teks Karangan Murid",
+        type: "textarea",
+        placeholder: "Tampal teks karangan murid di sini…",
+        required: true,
+      },
+      {
+        name: "jenis",
+        label: "Jenis Karangan",
+        type: "select",
+        options: [
+          "Karangan Berpandukan Gambar",
+          "Karangan Terbuka",
+          "Surat Kiriman Rasmi",
+          "Ucapan",
+          "Laporan",
+          "Perbincangan",
+        ],
+        default: "Karangan Terbuka",
+      },
+      {
+        name: "tingkatan",
+        label: "Tingkatan",
+        type: "text",
+        placeholder: "Tingkatan 3",
+        default: "Tingkatan 3",
+      },
+      {
+        name: "gaya",
+        label: "Komen Gaya Guru",
+        type: "select",
+        options: [
+          "Tegas (Pembetulan Penuh)",
+          "Sederhana (Kesalahan Utama Sahaja)",
+          "Galakan (Kekuatan Dulu)",
+        ],
+        default: "Sederhana (Kesalahan Utama Sahaja)",
+      },
     ],
     systemPrompt: `Anda ialah Guru Bahasa Melayu Kanan yang pakar dalam pembetulan karangan murid sekolah Malaysia, mahir format penilaian KPM dan teknik e-pembetulan.
 
@@ -180,17 +324,51 @@ Keluarkan lima bahagian penuh: teks bertanda, jadual kesalahan, komen guru (gaya
   },
 
   {
-    id: 'nota-ringkas-kssm',
-    plan: 'free',
-    name: 'Nota Ringkas KSSM',
-    icon: '📖',
+    id: "nota-ringkas-kssm",
+    plan: "free",
+    name: "Nota Ringkas KSSM",
+    icon: "📖",
     category: C_PENGAJARAN,
-    description: 'Nota ulangkaji ringkas dan berstruktur dari bab DSKP — dengan peta konsep, kata kunci dan soalan sendiri.',
+    description:
+      "Nota ulangkaji ringkas dan berstruktur dari bab DSKP — dengan peta konsep, kata kunci dan soalan sendiri.",
     fields: [
-      { name: 'subjek', label: 'Subjek', type: 'text', placeholder: 'Kimia Tingkatan 4', required: true },
-      { name: 'bab', label: 'Bab / Tajuk', type: 'textarea', placeholder: 'Bab 3: Jisim Atom dan Mol', required: true },
-      { name: 'panjang', label: 'Panjang Nota', type: 'select', options: ['Ringkas (1 halaman)', 'Sederhana (2 halaman)', 'Penuh (3+ halaman)'], default: 'Sederhana (2 halaman)' },
-      { name: 'format', label: 'FormatNota', type: 'select', options: ['Butir Berstruktur', 'Jadual Perbandingan', 'Peta Konsep Teks', 'Semenjana Kajian'], default: 'Butir Berstruktur' },
+      {
+        name: "subjek",
+        label: "Subjek",
+        type: "text",
+        placeholder: "Kimia Tingkatan 4",
+        required: true,
+      },
+      {
+        name: "bab",
+        label: "Bab / Tajuk",
+        type: "textarea",
+        placeholder: "Bab 3: Jisim Atom dan Mol",
+        required: true,
+      },
+      {
+        name: "panjang",
+        label: "Panjang Nota",
+        type: "select",
+        options: [
+          "Ringkas (1 halaman)",
+          "Sederhana (2 halaman)",
+          "Penuh (3+ halaman)",
+        ],
+        default: "Sederhana (2 halaman)",
+      },
+      {
+        name: "format",
+        label: "Format nota",
+        type: "select",
+        options: [
+          "Butir Berstruktur",
+          "Jadual Perbandingan",
+          "Peta Konsep Teks",
+          "Panduan ulang kaji",
+        ],
+        default: "Butir Berstruktur",
+      },
     ],
     systemPrompt: `Anda ialah Penulis Nota Ulangkaji yang pakar kandungan kurikulum KSSM Malaysia dan tahu apa yang murid SEBENARNYA perlu untuk skor peperiksaan.
 
@@ -200,13 +378,13 @@ Peraturan penghasilan nota:
 2. Struktur nota WAJIB ada:
    - TAJUK BAB dan gambaran satu ayat ("nota pergi ke mana").
    - KATA KUNCI: 5–10 istilah penting dengan definisi SATU AYAT setiap satu.
-   - ISI UTAMA: ${'{'}'butir berstruktur'{'}'} dengan penomboran, contoh konkrit setiap konsep, dan rumus/formula yang dibold jika ada.
+   - ISI UTAMA: ${"{"}'butir berstruktur'{'}'} dengan penomboran, contoh konkrit setiap konsep, dan rumus/formula yang dibold jika ada.
    - PETA KONSEP dalam format teks hierarki (guna indentasi dan garis ASCII) yang murid boleh salin ke kertas.
    - JADUAL PERBANDINGAN jika ada konsep yang sering dikelirukan (contoh: logam vs bukan logam, mitosis vs meiosis).
    - SOALAN DIRI: 5 soalan ulangkaji dengan jawapan pendek di belakang — direka supaya murid boleh uji diri tanpa buka nota.
    - TIP PERIKSA: apa yang selalu keluar, kesilapan biasa murid, kata kunci yang mesti ada dalam jawapan.
 3. Gunakan BAHASA MELAYU BAKU dengan istilah sains/teknikal yang sahih (contoh: "tindak balas penyesaran", bukan "ganti-buat"). Untuk istilah Inggeris yang biasa digunakan, beri dalam kurungan sekali sahaja pada kali pertama.
-4. Padatkan: setiap ayat mesti bawa maklumat, tiada pengisian. Murid patut boleh faham bab itu dari nota ini sahaja dalam ${'{'}'masa'{'}'} yang dinyatakan.`,
+4. Padatkan: setiap ayat mesti bawa maklumat, tiada pengisian. Murid patut boleh faham bab itu dari nota ini sahaja dalam ${"{"}'masa'{'}'} yang dinyatakan.`,
     buildPrompt: (v) =>
       `Hasilkan nota ulangkaji KSSM mengikut arahan sistem.
 
@@ -220,17 +398,57 @@ Guna ${v.format} sebagai tunjang susunan nota utama, tetapi tetap keluarkan SEMU
   },
 
   {
-    id: 'i-think-peta',
-    plan: 'free',
-    name: 'Strategi i-Think & Peta',
-    icon: '🧠',
+    id: "i-think-peta",
+    plan: "free",
+    name: "Strategi i-Think & Peta",
+    icon: "🧠",
     category: C_PENGAJARAN,
-    description: 'Reka aktiviti menggunakan peta pemikiran i-Think (Circle Map, Bubble Map, Flow Map dan lain-lain) untuk topik apa saja.',
+    description:
+      "Reka aktiviti menggunakan peta pemikiran i-Think (Circle Map, Bubble Map, Flow Map dan lain-lain) untuk topik apa saja.",
     fields: [
-      { name: 'subjek', label: 'Subjek', type: 'text', placeholder: 'Pendidikan Moral Tingkatan 2', required: true },
-      { name: 'topik', label: 'Topik', type: 'text', placeholder: 'Nilai murni dalam kehidupan seharian', required: true },
-      { name: 'peta', label: 'Jenis Peta i-Think', type: 'select', options: ['Circle Map (Menetapkan Konteks)', 'Bubble Map (Menghuraikan Sifat)', 'Double Bubble Map (Perbandingan)', 'Tree Map (Pengelasan)', 'Flow Map (Turutan)', 'Multi-Flow Map (Punca & Kesan)', 'Brace Map (Bahagian Keseluruhan)', 'Bridge Map (Analogi)', 'Biar AI Pilih'], default: 'Biar AI Pilih' },
-      { name: 'aktiviti', label: 'Bentuk Aktiviti', type: 'select', options: ['Kerja Berkumpulan', 'Individu', 'Minda Terbuka Kelas', 'Rumah (Kerja Rumah)'], default: 'Kerja Berkumpulan' },
+      {
+        name: "subjek",
+        label: "Subjek",
+        type: "text",
+        placeholder: "Pendidikan Moral Tingkatan 2",
+        required: true,
+      },
+      {
+        name: "topik",
+        label: "Topik",
+        type: "text",
+        placeholder: "Nilai murni dalam kehidupan seharian",
+        required: true,
+      },
+      {
+        name: "peta",
+        label: "Jenis Peta i-Think",
+        type: "select",
+        options: [
+          "Circle Map (Menetapkan Konteks)",
+          "Bubble Map (Menghuraikan Sifat)",
+          "Double Bubble Map (Perbandingan)",
+          "Tree Map (Pengelasan)",
+          "Flow Map (Turutan)",
+          "Multi-Flow Map (Punca & Kesan)",
+          "Brace Map (Bahagian Keseluruhan)",
+          "Bridge Map (Analogi)",
+          "Biar AI Pilih",
+        ],
+        default: "Biar AI Pilih",
+      },
+      {
+        name: "aktiviti",
+        label: "Bentuk Aktiviti",
+        type: "select",
+        options: [
+          "Kerja Berkumpulan",
+          "Individu",
+          "Minda Terbuka Kelas",
+          "Rumah (Kerja Rumah)",
+        ],
+        default: "Kerja Berkumpulan",
+      },
     ],
     systemPrompt: `Anda ialah Fasilitator Pemikiran Visual yang dilatih dalam program i-Think Kementerian Pendidikan Malaysia dan pakar strategi Habits of Mind.
 
@@ -256,22 +474,63 @@ DETAIL GURU:
 - Peta Diminta: ${v.peta}
 - Bentuk Aktiviti: ${v.aktiviti}
 
-${v.peta === 'Biar AI Pilih' ? 'Anda pilih peta yang paling sesuai dan justifikasikan.' : `Guna peta ${v.peta} sebagai tunjang aktiviti.`} Keluarkan keenam-enam bahagian: cadangan peta, keterangan, aktiviti langkah demi langkah dengan soalan perangsang, contoh peta terisi, kriteria pentaksiran, dan variasi ulangan.`,
+${v.peta === "Biar AI Pilih" ? "Anda pilih peta yang paling sesuai dan justifikasikan." : `Guna peta ${v.peta} sebagai tunjang aktiviti.`} Keluarkan keenam-enam bahagian: cadangan peta, keterangan, aktiviti langkah demi langkah dengan soalan perangsang, contoh peta terisi, kriteria pentaksiran, dan variasi ulangan.`,
   },
 
   {
-    id: 'pdpr-aktiviti',
-    plan: 'pro',
-    name: 'Aktiviti PDPR / PdPc Digital',
-    icon: '💻',
+    id: "pdpr-aktiviti",
+    plan: "pro",
+    name: "Aktiviti PDPR / PdPc Digital",
+    icon: "💻",
     category: C_PENGAJARAN,
-    description: 'Rancang PdPc dalam talian: platform percuma, aktiviti interaktif, dan pelan keselamatan jika teknologi gagal.',
+    description:
+      "Rancang PdPc dalam talian: platform percuma, aktiviti interaktif, dan pelan keselamatan jika teknologi gagal.",
     fields: [
-      { name: 'subjek', label: 'Subjek', type: 'text', placeholder: 'Matematik Tingkatan 1', required: true },
-      { name: 'tajuk', label: 'Tajuk', type: 'text', placeholder: 'Faktor dan Gandaan', required: true },
-      { name: 'platform', label: 'Platform Tersedia', type: 'select', options: ['WhatsApp sahaja', 'Google Classroom', 'Microsoft Teams', 'Google Meet / Zoom', 'Semua di atas'], default: 'Google Classroom' },
-      { name: 'internet', label: 'Keadaan Internet Murid', type: 'select', options: ['Baik (boleh video)', 'Sederhana (data terhad)', 'Lemah (teks/gambar sahaja)'], default: 'Sederhana (data terhad)' },
-      { name: 'tempoh', label: 'Tempoh Sesi (minit)', type: 'select', options: ['20', '30', '40', '60'], default: '30' },
+      {
+        name: "subjek",
+        label: "Subjek",
+        type: "text",
+        placeholder: "Matematik Tingkatan 1",
+        required: true,
+      },
+      {
+        name: "tajuk",
+        label: "Tajuk",
+        type: "text",
+        placeholder: "Faktor dan Gandaan",
+        required: true,
+      },
+      {
+        name: "platform",
+        label: "Platform Tersedia",
+        type: "select",
+        options: [
+          "WhatsApp sahaja",
+          "Google Classroom",
+          "Microsoft Teams",
+          "Google Meet / Zoom",
+          "Semua di atas",
+        ],
+        default: "Google Classroom",
+      },
+      {
+        name: "internet",
+        label: "Keadaan Internet Murid",
+        type: "select",
+        options: [
+          "Baik (boleh video)",
+          "Sederhana (data terhad)",
+          "Lemah (teks/gambar sahaja)",
+        ],
+        default: "Sederhana (data terhad)",
+      },
+      {
+        name: "tempoh",
+        label: "Tempoh Sesi (minit)",
+        type: "select",
+        options: ["20", "30", "40", "60"],
+        default: "30",
+      },
     ],
     systemPrompt: `Anda ialah Pakar PdPc Digital (PDPR) dengan pengalaman luas mengendalikan kelas dalam talian di sekolah Malaysia, termasuk situasi sebenar murid kampung dengan data terhad dan peranti dikongsi.
 
@@ -302,17 +561,48 @@ Semua cadangan mesti mampu jalan di ${v.platform} dengan internet ${v.internet}.
   },
 
   {
-    id: 'kerja-kursus',
-    plan: 'pro',
-    name: 'Panduan Kerja Kursus / Projek',
-    icon: '🏗️',
+    id: "kerja-kursus",
+    plan: "pro",
+    name: "Panduan Kerja Kursus / Projek",
+    icon: "🏗️",
     category: C_PENGURUSAN,
-    description: 'Draf garis panduan kerja kursus lengkap: objektif, jadual tugas, rubrik penilaian dan cadangan topik murid.',
+    description:
+      "Draf garis panduan kerja kursus lengkap: objektif, jadual tugas, rubrik penilaian dan cadangan topik murid.",
     fields: [
-      { name: 'subjek', label: 'Subjek', type: 'text', placeholder: 'Geografi Tingkatan 3', required: true },
-      { name: 'tajuk', label: 'Tajuk Kerja Kursus', type: 'text', placeholder: 'Kajian Kesihatan Alam Sekitar di Taman Setia', required: true },
-      { name: 'tempoh', label: 'Tempoh Siap (minggu)', type: 'select', options: ['4', '6', '8', '10'], default: '6' },
-      { name: 'bentuk', label: 'Bentuk Hasil', type: 'select', options: ['Laporan Bertulis', 'Poster + Penerangan', 'Video Pendek', 'Model / Hasil Tangan', 'Persembahan Digital'], default: 'Laporan Bertulis' },
+      {
+        name: "subjek",
+        label: "Subjek",
+        type: "text",
+        placeholder: "Geografi Tingkatan 3",
+        required: true,
+      },
+      {
+        name: "tajuk",
+        label: "Tajuk Kerja Kursus",
+        type: "text",
+        placeholder: "Kajian Kesihatan Alam Sekitar di Taman Setia",
+        required: true,
+      },
+      {
+        name: "tempoh",
+        label: "Tempoh Siap (minggu)",
+        type: "select",
+        options: ["4", "6", "8", "10"],
+        default: "6",
+      },
+      {
+        name: "bentuk",
+        label: "Bentuk Hasil",
+        type: "select",
+        options: [
+          "Laporan Bertulis",
+          "Poster + Penerangan",
+          "Video Pendek",
+          "Model / Hasil Tangan",
+          "Persembahan Digital",
+        ],
+        default: "Laporan Bertulis",
+      },
     ],
     systemPrompt: `Anda ialah Ketua Panitia yang berpengalaman mengendalikan kerja kursus dan pentaksiran sekolah mengikut format KSSM dan garis panduan peperiksaan Malaysia.
 
@@ -321,7 +611,7 @@ Hasilkan PANDUAN KERJA KURSUS lengkap untuk guru edar kepada murid:
 1. OBJEKTIF KERJA KURSUS — selaras dengan standard pembelajaran KSSM subjek itu, dinyatakan sebagai hasil yang boleh dinilai.
 2. TUNTUTAN TUGASAN — terangkan kepada murid apa yang perlu dibuat, dalam bahasa yang murid tingkatan itu faham. Nyatakan dengan jelas: apa yang dihasilkan, berapa panjang/saiz, dan apa yang TIDAK diterima (plagiarisme, bahan buatan AI tanpa pemercuan jika guru mahu nyatakan).
 3. STRUKTUR HASIL KERJA — susunan bahagian yang murid patut ikut (contoh laporan: kulit, penghargaan, kandungan, pengenalan, isi, kesimpulan, refleksi, rujukan). Untuk setiap bahagian beri KETERANGAN APA YANG DITULIS dan bilangan perkataan/panjang yang disyorkan.
-4. JADUAL MASA — pecahan minggu demi minggu untuk ${'{'}'tempoh'{'}'} minggu: peringkat (perancangan, pengumpulan data, menghasilkan, menyemak, menghantar) dengan peringkat pencapaian yang boleh guru semak.
+4. JADUAL MASA — pecahan minggu demi minggu untuk ${"{"}'tempoh'{'}'} minggu: peringkat (perancangan, pengumpulan data, menghasilkan, menyemak, menghantar) dengan peringkat pencapaian yang boleh guru semak.
 5. RUBRIK PENILAIAN — jadual dengan kriteria (isi/kandungan, kreativiti, ketepatan teknikal, bahasa, kesempurnaan) dan deskriptor untuk setiap aras markah. Jumlah markah 100 atau ikut pecahan peperiksaan subjek jika diketahui.
 6. CADANGAN SUMBER: kaedah pengumpulan data yang realistik untuk murid sekolah Malaysia (tinjauan, wawancara, pemerhatian tapak, sumber dalam talian yang percuma).
 7. PENGESAHAN: ruang tanda tangan murid, ibu bapa dan guru — format borang sekolah.
@@ -339,41 +629,57 @@ Struktur hasil kerja dan rubrik mesti diubah suai mengikut bentuk hasil "${v.ben
   },
 
   {
-    id: 'analisis-prestasi',
-    plan: 'pro',
-    name: 'Analisis Prestasi Murid',
-    icon: '📈',
+    id: "analisis-prestasi",
+    plan: "pro",
+    name: "Analisis Prestasi Murid",
+    icon: "📈",
     category: C_PENTAKSIRAN,
-    description: 'Masukkan markah kelas, dapat analisis: taburan penguasaan, kekuatan/kelemahan topik, cadangan tindakan susulan.',
+    description:
+      "Masukkan markah kelas, dapat analisis: taburan penguasaan, kekuatan/kelemahan topik, cadangan tindakan susulan.",
     fields: [
-      { name: 'subjek', label: 'Subjek', type: 'text', placeholder: 'Bahasa Inggeris Tingkatan 2', required: true },
-      { name: 'markah', label: 'Markah Murid', type: 'textarea', placeholder: 'Nurul 78\\nAiman 45\\nSiti 66\\n(satu murid satu baris, atau tampal senarai markah)', required: true },
-      { name: 'topik', label: 'Topik / Kertas', type: 'text', placeholder: 'Ujian 1: Kertas 2 Penulisan' },
-      { name: 'sasaran', label: 'Sasaran Guru', type: 'select', options: ['Analisis umum', 'Kenal pasti murid berisiko (MT)', 'Cadangkan program intervensi', 'Bahan untuk mesyuarat panitia'], default: 'Analisis umum' },
+      {
+        name: "subjek",
+        label: "Subjek",
+        type: "text",
+        placeholder: "Bahasa Inggeris Tingkatan 2",
+        required: true,
+      },
+      {
+        name: "markah",
+        label: "Markah pelajar (ID samaran)",
+        type: "textarea",
+        placeholder:
+          "P001, 78\nP002, 45\nP003, 66\n(ID samaran sahaja, satu pelajar setiap baris)",
+        required: true,
+      },
+      {
+        name: "topik",
+        label: "Topik / Kertas",
+        type: "text",
+        placeholder: "Ujian 1: Kertas 2 Penulisan",
+      },
+      {
+        name: "sasaran",
+        label: "Sasaran Guru",
+        type: "select",
+        options: [
+          "Analisis umum",
+          "Kenal pasti murid berisiko (MT)",
+          "Cadangkan program intervensi",
+          "Bahan untuk mesyuarat panitia",
+        ],
+        default: "Analisis umum",
+      },
     ],
-    systemPrompt: `Anda ialah Penyelaras Data Pentaksiran sekolah yang pakar dalam analisis prestasi murid dan Laporan Tindakan Susulan mengikut format KPM.
+    systemPrompt: `Anda membantu guru MRSM menganalisis data markah yang telah dinyahnamakan. Gunakan statistik tepat yang diberikan oleh sistem: bilangan, purata, median, minimum dan maksimum. Jangan kira semula secara anggaran. Jangan mereka gred rasmi, ambang lulus, Tahap Penguasaan PBD atau punca prestasi. Markah keseluruhan sahaja tidak menunjukkan kelemahan mengikut topik. Jika rubrik/ambang tidak diberi, paparkan markah mentah dan kelompok markah sebagai cadangan analisis, bukan ketetapan KPM atau MARA.
 
-Cara kerja anda dengan data markah guru:
-
-1. URAI DATA: kira bilangan murid, min (purata), median, julat, dan taburan gred/penguasaan. Guna banding KPM yang biasa: Cemerlang (80–100), Kepujian (60–79), Memuaskan (40–59), Perlu Bimbingan/MT (<40) — atau pecahan TP jika guru nyatakan. Nyatakan andaian anda jika markah tidak cukup konteks.
-2. TABURAN: tunjuk dalam jadual + bar chart ASCII supaya guru boleh nampak bentuk taburan sekelip mata.
-3. KENAL PASTI POLA:
-   - Murid berisiko: senarai murid di bawah ambang, diisih dari paling berisiko.
-   - Kelompok: siapa hampir lompat band (contoh: 55–59, satu push kecil boleh naik ke Memuaskan) — ini peluang kemenangan cepat.
-   - Jurang: siapa jauh dari kumpulan (contoh murid tunggal 20 markah di bawah kumpulan) yang mungkin perlukan intervensi individu, bukan kelas pemulihan.
-4. TINDAKAN SUSULAN — sesuai dengan sasaran guru:
-   - Untuk murid MT: cadangan kumpulan pemulihan, fokus kemahiran, strategi pembezaan dalam kelas biasa.
-   - Untuk kelompok lompat band: aktiviti pengayaan/target yang boleh siap dalam masa singkat.
-   - Untuk mesyuarat panitia: ringkasan dua perenggan siap baca — pola, sebab yang mungkin, tindakan, sasaran seterusnya.
-5. SASARAN SETERUJU: cadangan sasaran markah kelas seterusnya yang REALISTIK (contoh: +5 markah min, kurangkan murid MT dari 4 ke 2), dengan justifikasi.
-6. RAHSIA DATA: jangan pernah menonjolkan murid dengan nama secara memalukan — bila senarai nama diperlukan, guna format neutral ("murid berikut perlu bimbingan: …").
-7. Bahasa: BAHASA MELAYU BAKU.`,
+Hasilkan: (1) ringkasan statistik; (2) jadual markah ID samaran dengan susunan konsisten; (3) pola yang benar-benar disokong data dan batasan analisis; (4) cadangan pengukuhan/pengayaan mengikut sasaran guru; (5) pelan tindakan susulan yang realistik untuk disemak. Jangan melabel mana-mana pelajar sebagai gagal/bermasalah tanpa konteks penilaian. Gunakan ID samaran sahaja. Jangan menokok data ujian, kebolehan, diagnosis atau maklumat pelajar. Tulis Bahasa Melayu baku.`,
     buildPrompt: (v) =>
       `Analisis prestasi murid mengikut arahan sistem.
 
 DETAIL GURU:
 - Subjek: ${v.subjek}
-- Topik/Kertas: ${v.topik || '(tiada topik diberi)'}
+- Topik/Kertas: ${v.topik || "(tiada topik diberi)"}
 - Sasaran Analisis: ${v.sasaran}
 
 DATA MARKAH:
@@ -383,19 +689,51 @@ Kira statistik penuh, tunjuk taburan dengan bar chart ASCII, kenal pasti murid b
   },
 
   {
-    id: 'surat-rasmi',
-    plan: 'free',
-    name: 'Surat Rasmi & Kertas Cadangan',
-    icon: '✉️',
+    id: "surat-rasmi",
+    plan: "free",
+    name: "Surat Rasmi & Kertas Cadangan",
+    icon: "✉️",
     category: C_PENGURUSAN,
-    description: 'Draf surat rasmi KPM, kertas cadangan aktiviti sekolah, dan notis ibu bapa — format tepat, sedia tandatangan.',
+    description:
+      "Draf surat rasmi KPM, kertas cadangan aktiviti sekolah, dan notis ibu bapa — format tepat, sedia tandatangan.",
     fields: [
-      { name: 'jenis', label: 'Jenis Dokumen', type: 'select', options: ['Surat Rasmi Jabatan/Pihak Luar', 'Kertas Cadangan Aktiviti Sekolah', 'Notis/Surat Kepada Ibu Bapa', 'Surat Jemputan', 'Permohonan Kebenaran/Pinjaman', 'Laporan Aktiviti'], default: 'Surat Rasmi Jabatan/Pihak Luar' },
-      { name: 'tujuan', label: 'Tujuan / Isi Utama', type: 'textarea', placeholder: 'Mohon kebenaran mengadakan Karnival Kokurikulum pada 15 Mac di padang sekolah', required: true },
-      { name: 'sekolah', label: 'Nama Sekolah / Penerima', type: 'text', placeholder: 'SMK Taman Melati / PPD Gombak' },
-      { name: 'butiran', label: 'Butiran Tambahan (tarikh, masa, tempat, anggaran kos)', type: 'textarea', placeholder: '15 Mac 2025, 8:00 pagi – 4:00 petang, padang sekolah, anggaran RM1,500' },
+      {
+        name: "jenis",
+        label: "Jenis Dokumen",
+        type: "select",
+        options: [
+          "Surat Rasmi Jabatan/Pihak Luar",
+          "Kertas Cadangan Aktiviti Sekolah",
+          "Notis/Surat Kepada Ibu Bapa",
+          "Surat Jemputan",
+          "Permohonan Kebenaran/Pinjaman",
+          "Laporan Aktiviti",
+        ],
+        default: "Surat Rasmi Jabatan/Pihak Luar",
+      },
+      {
+        name: "tujuan",
+        label: "Tujuan / Isi Utama",
+        type: "textarea",
+        placeholder:
+          "Mohon kebenaran mengadakan Karnival Kokurikulum pada 15 Mac di padang sekolah",
+        required: true,
+      },
+      {
+        name: "sekolah",
+        label: "Nama Sekolah / Penerima",
+        type: "text",
+        placeholder: "MRSM / Pejabat MARA berkaitan",
+      },
+      {
+        name: "butiran",
+        label: "Butiran Tambahan (tarikh, masa, tempat, anggaran kos)",
+        type: "textarea",
+        placeholder:
+          "Tarikh aktiviti, 8:00 pagi – 4:00 petang, padang sekolah, anggaran RM1,500",
+      },
     ],
-    systemPrompt: `Anda ialah Setiausaha Pejabat sekolah Malaysia yang mahir format dokumen rasmi Kementerian Pendidikan Malaysia dan bahasa pentadbiran Melayu.
+    systemPrompt: `Anda ialah Pembantu Penyediaan Dokumen MRSM yang menggunakan bahasa rasmi dan struktur surat Malaysia dan bahasa pentadbiran Melayu.
 
 Hasilkan dokumen rasmi yang BOLEH TERUS CETAK dan tanda tangan. Peraturan format:
 
@@ -418,24 +756,62 @@ Hasilkan dokumen rasmi yang BOLEH TERUS CETAK dan tanda tangan. Peraturan format
 DETAIL GURU:
 - Jenis Dokumen: ${v.jenis}
 - Tujuan: ${v.tujuan}
-- Sekolah / Penerima: ${v.sekolah || '(tiada diberi — guna placeholder)'}
-- Butiran Tambahan: ${v.butiran || '(tiada — guna placeholder [ ] untuk semua butiran yang perlu)'}
+- Sekolah / Penerima: ${v.sekolah || "(tiada diberi — guna placeholder)"}
+- Butiran Tambahan: ${v.butiran || "(tiada — guna placeholder [ ] untuk semua butiran yang perlu)"}
 
 Keluarkan dokumen penuh dalam format tepat untuk jenis "${v.jenis}", sedia cetak, dan senarai placeholder di akhir.`,
   },
 
   {
-    id: 'teks-ucapan',
-    plan: 'free',
-    name: 'Teks Ucapan & Perhimpunan',
-    icon: '🎤',
+    id: "teks-ucapan",
+    plan: "free",
+    name: "Teks Ucapan & Perhimpunan",
+    icon: "🎤",
     category: C_PENGURUSAN,
-    description: 'Teks ucapan perhimpunan, majlis, bicara agama/nilai murni — dengan rentak, jeda dan kata penggerak.',
+    description:
+      "Teks ucapan perhimpunan, majlis, bicara agama/nilai murni — dengan rentak, jeda dan kata penggerak.",
     fields: [
-      { name: 'jenis', label: 'Jenis Ucapan', type: 'select', options: ['Ucapan Perhimpunan Mingguan', 'Ucapan Majlis Rasmi (Pengetua)', 'Teks Bicara Nilai Murni', 'Ucapan Pelajar (Wakil Murid)', 'Teks Pengacara Majlis', 'Ucapan Persaraan/Penghargaan'], default: 'Ucapan Perhimpunan Mingguan' },
-      { name: 'tema', label: 'Tema / Isi Utama', type: 'textarea', placeholder: 'Kebersihan persekitaran sekolah dan tanggungjawab bersama', required: true },
-      { name: 'masa', label: 'Tempoh Ucapan (minit)', type: 'select', options: ['3', '5', '7', '10'], default: '5' },
-      { name: 'audiens', label: 'Audiens', type: 'select', options: ['Murid sekolah menengah', 'Murid sekolah rendah', 'Ibu bapa & tetamu', 'Guru & staf'], default: 'Murid sekolah menengah' },
+      {
+        name: "jenis",
+        label: "Jenis Ucapan",
+        type: "select",
+        options: [
+          "Ucapan Perhimpunan Mingguan",
+          "Ucapan Majlis Rasmi (Pengetua)",
+          "Teks Bicara Nilai Murni",
+          "Ucapan Pelajar (Wakil Murid)",
+          "Teks Pengacara Majlis",
+          "Ucapan Persaraan/Penghargaan",
+        ],
+        default: "Ucapan Perhimpunan Mingguan",
+      },
+      {
+        name: "tema",
+        label: "Tema / Isi Utama",
+        type: "textarea",
+        placeholder:
+          "Kebersihan persekitaran sekolah dan tanggungjawab bersama",
+        required: true,
+      },
+      {
+        name: "masa",
+        label: "Tempoh Ucapan (minit)",
+        type: "select",
+        options: ["3", "5", "7", "10"],
+        default: "5",
+      },
+      {
+        name: "audiens",
+        label: "Audiens",
+        type: "select",
+        options: [
+          "Murid sekolah menengah",
+          "Murid sekolah rendah",
+          "Ibu bapa & tetamu",
+          "Guru & staf",
+        ],
+        default: "Murid sekolah menengah",
+      },
     ],
     systemPrompt: `Anda ialah Penulis Teks Ucapan rasmi sekolah Malaysia — tahu rentak ucapan perhimpunan sekolah, bahasa beradab, dan bagaimana menggenggam perhatian murid remaja.
 
@@ -447,7 +823,7 @@ Cara anda menulis teks ucapan:
 4. TANDA RENTAK untuk penceramah: [jeda], [lambat], [tekankan], [tanya audiens], [senyum] — ditulis dalam kurungan siku di tempat yang tepat supaya orang baca tahu bila berhenti.
 5. KATA PENGGERAK: tutup dengan seruan yang boleh diingat — frasa pendek yang murid boleh ulang, atau cabaran mingguan yang konkrit (bukan "mari kita amalkan" kosong).
 6. PANCINGAN INTERAKSI: untuk audiens murid, selitkan sekurang-kurangnya satu soalan retorik atau ajakan jawab serentak ("Jika saya kata betul, pukul tangan!").
-7. PANJANG: kira sekitar 120–140 patah perkataan per minit ucapan. Teks ${'{'}'masa'{'}'} minit = sekitar ${'{'}'masa'{'}'} × 130 patah perkataan. Jangan lebih.
+7. PANJANG: kira sekitar 120–140 patah perkataan per minit ucapan. Teks ${"{"}'masa'{'}'} minit = sekitar ${"{"}'masa'{'}'} × 130 patah perkataan. Jangan lebih.
 8. Bahasa: BAHASA MELAYU BAKU, beradab, dengan sedikit peribahasa atau pantun pembuka/penutup jika sesuai dengan majlis. Pantun mesti berima sebenar, bukan paksa.`,
     buildPrompt: (v) =>
       `Hasilkan teks ucapan penuh mengikut arahan sistem.
@@ -462,25 +838,50 @@ Teks lengkap dengan salutasi, pembuka menarik, isi konkrit dari kehidupan sekola
   },
 
   {
-    id: 'bahan-diferensiasi',
-    plan: 'pro',
-    name: 'Bahan Pembezaan (Linus / MASTIS / Cemerlang)',
-    icon: '🎯',
+    id: "bahan-diferensiasi",
+    plan: "pro",
+    name: "Bahan Pembezaan & Pengayaan MRSM",
+    icon: "🎯",
     category: C_PENGAJARAN,
-    description: 'Satu topik, tiga set bahan: pemulihan untuk murid lemah, asas untuk kelas tengah, pengayaan untuk murid cemerlang.',
+    description:
+      "Satu topik, tiga set bahan: pemulihan untuk murid lemah, asas untuk kelas tengah, pengayaan untuk murid cemerlang.",
     fields: [
-      { name: 'subjek', label: 'Subjek', type: 'text', placeholder: 'Matematik Tingkatan 2', required: true },
-      { name: 'topik', label: 'Topik', type: 'textarea', placeholder: 'Ungkapan Algebra — kuasa dan punca kuasa', required: true },
-      { name: 'tahap', label: 'Tahap Murid Difokuskan', type: 'select', options: ['Semua 3 aras', 'Pemulihan sahaja (MT)', 'Asas + Pengayaan'], default: 'Semua 3 aras' },
-      { name: 'masa', label: 'Masa Aktiviti (minit)', type: 'select', options: ['15', '30', '60'], default: '30' },
+      {
+        name: "subjek",
+        label: "Subjek",
+        type: "text",
+        placeholder: "Matematik Tingkatan 2",
+        required: true,
+      },
+      {
+        name: "topik",
+        label: "Topik",
+        type: "textarea",
+        placeholder: "Ungkapan Algebra — kuasa dan punca kuasa",
+        required: true,
+      },
+      {
+        name: "tahap",
+        label: "Tahap Murid Difokuskan",
+        type: "select",
+        options: ["Semua 3 aras", "Sokongan asas sahaja", "Asas + Pengayaan"],
+        default: "Semua 3 aras",
+      },
+      {
+        name: "masa",
+        label: "Masa Aktiviti (minit)",
+        type: "select",
+        options: ["15", "30", "60"],
+        default: "30",
+      },
     ],
-    systemPrompt: `Anda ialah Pakar Pendidikan Inklusif dan Pembezaan yang pakar program Masteri (Linus, MASTIS) dan pengayaan murid cemerlang di sekolah Malaysia.
+    systemPrompt: `Anda ialah Pakar Pendidikan Inklusif dan Pembezaan yang menyediakan sokongan, pengukuhan dan pengayaan untuk pelajar sekolah menengah MRSM.
 
 Tugasan: hasilkan BAHAN PEMBEZAAN tiga aras untuk SATU topik, dalam SATU keluaran, supaya guru boleh guna dalam kelas sama masa.
 
 Untuk SETIAP aras yang diminta, keluarkan:
 
-ARAS PEMULIHAN (murid lemah / MT / Masteri):
+ARAS PEMULIHAN (pelajar yang memerlukan sokongan asas):
 - Objektif yang DIPERMUDAHKAN — langkah paling kecil yang boleh murid capai dalam masa yang diberi.
 - Bahan konkrit: kaedah konkrit sebelum abstrak (contoh: bahan maujud, gambar, manipulasi sebelum simbol).
 - Latihan 3–5 soalan dari MUDAH ke sedikit sukar, dengan contoh terbimbing (worked example) sebelum soalan sendiri.
@@ -499,7 +900,7 @@ ARAS PENGAYAAN (murid cemerlang):
 
 TAMBAHAN WAJIB:
 - JADUAL PENGURUSAN KELAS: bagaimana guru bahagikan masa dalam kelas yang tiga aras berlaku serentak — siapa dengan guru bila.
-- Bahasa bahan: untuk murid pemulihan guna ayat PENDEK dan kata mudah; untuk pengayaan guna soalan terbuka.
+- Bahasa bahan: untuk pelajar yang memerlukan sokongan guna ayat PENDEK dan kata mudah; untuk pengayaan guna soalan terbuka.
 - Bahasa: BAHASA MELAYU BAKU.`,
     buildPrompt: (v) =>
       `Hasilkan bahan pembezaan tiga aras mengikut arahan sistem.
@@ -510,21 +911,52 @@ DETAIL GURU:
 - Aras Diminta: ${v.tahap}
 - Masa Aktiviti: ${v.masa} minit
 
-${v.tahap === 'Semua 3 aras' ? 'Keluarkan ketiga-tiga aras penuh.' : v.tahap === 'Pemulihan sahaja (MT)' ? 'Fokus penuh pada aras pemulihan — lebih dalam, lebih banyak contoh terbimbing dan strategi sokongan.' : 'Fokus pada aras Asas dan Pengayaan.'} Tamatkan dengan jadual pengurusan kelas untuk ${v.masa} minit.`,
+${v.tahap === "Semua 3 aras" ? "Keluarkan ketiga-tiga aras penuh." : v.tahap === "Sokongan asas sahaja" ? "Fokus penuh pada aras pemulihan — lebih dalam, lebih banyak contoh terbimbing dan strategi sokongan." : "Fokus pada aras Asas dan Pengayaan."} Tamatkan dengan jadual pengurusan kelas untuk ${v.masa} minit.`,
   },
 
   {
-    id: 'latihan-hots',
-    plan: 'pro',
-    name: 'Latihan KBAT / HOTS',
-    icon: '🔥',
+    id: "latihan-hots",
+    plan: "pro",
+    name: "Latihan KBAT / HOTS",
+    icon: "🔥",
     category: C_PENGAJARAN,
-    description: 'Soalan HOTS aras tinggi dengan konteks Malaysia sebenar, berserta stensil jawapan dan skala rubrik aras pemikiran.',
+    description:
+      "Soalan HOTS aras tinggi dengan konteks Malaysia sebenar, berserta stensil jawapan dan skala rubrik aras pemikiran.",
     fields: [
-      { name: 'subjek', label: 'Subjek', type: 'text', placeholder: 'Pendidikan Islam Tingkatan 3', required: true },
-      { name: 'topik', label: 'Topik', type: 'textarea', placeholder: 'Hukum bacaan tajwid dalam kehidupan harian', required: true },
-      { name: 'bilangan', label: 'Bilangan Soalan HOTS', type: 'text', placeholder: '3', default: '3' },
-      { name: 'konteks', label: 'Konteks Yang Dimahukan', type: 'select', options: ['Kehidupan murid', 'Isu semasa Malaysia', 'Konteks ICT/digital', 'Keluarga & masyarakat', 'Alam sekitar'], default: 'Kehidupan murid' },
+      {
+        name: "subjek",
+        label: "Subjek",
+        type: "text",
+        placeholder: "Pendidikan Islam Tingkatan 3",
+        required: true,
+      },
+      {
+        name: "topik",
+        label: "Topik",
+        type: "textarea",
+        placeholder: "Hukum bacaan tajwid dalam kehidupan harian",
+        required: true,
+      },
+      {
+        name: "bilangan",
+        label: "Bilangan Soalan HOTS",
+        type: "text",
+        placeholder: "3",
+        default: "3",
+      },
+      {
+        name: "konteks",
+        label: "Konteks Yang Dimahukan",
+        type: "select",
+        options: [
+          "Kehidupan murid",
+          "Isu semasa Malaysia",
+          "Konteks ICT/digital",
+          "Keluarga & masyarakat",
+          "Alam sekitar",
+        ],
+        default: "Kehidupan murid",
+      },
     ],
     systemPrompt: `Anda ialah Pakar HOTS (Higher Order Thinking Skills) dan KBAT yang dilatih dalam pentaksiran aras Taksonomi Bloom yang disemak, dan tahu apa yang membezakan soalan HOTS SEBENAR daripada soalan biasa yang ditulis panjang.
 
@@ -554,6 +986,102 @@ DETAIL GURU:
 Setiap soalan dengan stimulus, kata pengarah aras tinggi, aras Bloom, markah, stensil jawapan (cemerlang dan lemah), dan rubrik pemarkahan 4 aras. Tutup dengan satu strategi tangga dari soalan biasa ke HOTS.`,
   },
 
+  {
+    id: "prep-mrsm",
+    plan: "free",
+    name: "Rancangan Prep MRSM",
+    icon: "🌙",
+    category: C_PENGAJARAN,
+    description:
+      "Pelan ulang kaji berstruktur untuk prep asrama, dengan latihan kendiri, semakan jawapan dan refleksi.",
+    fields: [
+      {
+        name: "subjek",
+        label: "Subjek",
+        type: "text",
+        required: true,
+        placeholder: "Matematik Tingkatan 4",
+      },
+      {
+        name: "tajuk",
+        label: "Topik / hasil pembelajaran",
+        type: "textarea",
+        required: true,
+        placeholder: "Persamaan kuadratik — menyelesaikan dengan pemfaktoran",
+      },
+      {
+        name: "tempoh",
+        label: "Tempoh prep (minit)",
+        type: "select",
+        options: ["30", "45", "60", "90"],
+        default: "60",
+      },
+      {
+        name: "kemudahan",
+        label: "Kemudahan tersedia",
+        type: "select",
+        options: [
+          "Buku dan alat tulis sahaja",
+          "Kalkulator dan buku",
+          "Komputer dengan pengawasan",
+        ],
+        default: "Buku dan alat tulis sahaja",
+      },
+      {
+        name: "fokus",
+        label: "Fokus",
+        type: "select",
+        options: [
+          "Ulang kaji kendiri",
+          "Pengukuhan berpasangan",
+          "Pengayaan / KBAT",
+        ],
+        default: "Ulang kaji kendiri",
+      },
+    ],
+    systemPrompt: `Anda membantu guru MRSM menyediakan rancangan prep berasrama yang realistik untuk pelajar menengah. Hasilkan jadual masa yang jumlahnya tepat mengikut tempoh, objektif terukur, arahan kendiri, satu contoh terbimbing, latihan bertahap, jawapan berasingan dan refleksi penutup. Sesuaikan aktiviti dengan kemudahan sebenar; jangan memerlukan telefon atau internet jika tidak tersedia. Elakkan beban tugas berlebihan. Sertakan cara guru memantau kemajuan tanpa mendedahkan maklumat pelajar. Standard KSSM/DSKP perlu disahkan guru; jangan mereka dasar prep rasmi MRSM.`,
+    buildPrompt: (v) =>
+      `Sediakan rancangan prep: subjek ${v.subjek}; topik ${v.tajuk}; tempoh ${v.tempoh} minit; kemudahan ${v.kemudahan}; fokus ${v.fokus}. Pastikan jumlah peruntukan masa tepat dan skema jawapan berada selepas latihan.`,
+  },
+  {
+    id: "homeroom-mrsm",
+    plan: "free",
+    name: "Aktiviti Homeroom MRSM",
+    icon: "🤝",
+    category: C_PENGURUSAN,
+    description:
+      "Rancang sesi Homeroom untuk kerjasama, pengurusan diri dan sahsiah, lengkap dengan refleksi dan tindakan susulan.",
+    fields: [
+      {
+        name: "tema",
+        label: "Tema / tujuan sesi",
+        type: "textarea",
+        required: true,
+        placeholder: "Pengurusan masa dan penyesuaian kehidupan berasrama",
+      },
+      {
+        name: "tempoh",
+        label: "Tempoh sesi (minit)",
+        type: "select",
+        options: ["20", "30", "45", "60"],
+        default: "30",
+      },
+      {
+        name: "bentuk",
+        label: "Bentuk aktiviti",
+        type: "select",
+        options: [
+          "Perbincangan kumpulan",
+          "Aktiviti kerjasama",
+          "Refleksi dan penetapan matlamat",
+        ],
+        default: "Perbincangan kumpulan",
+      },
+    ],
+    systemPrompt: `Anda membantu penasihat Homeroom MRSM menyediakan aktiviti pembangunan diri untuk remaja. Berikan objektif, bahan mudah, jadual masa yang tepat, panduan fasilitator, pilihan untuk pelajar yang tidak selesa berkongsi, soalan refleksi dan tindakan susulan. Jangan meminta peserta mendedahkan hal keluarga, kesihatan, trauma atau maklumat sulit. Jangan membuat diagnosis atau menggantikan kaunselor. Jika isu kebajikan timbul, cadangkan rujukan kepada guru bimbingan/kaunselor melalui saluran maktab. Jangan mereka modul, slogan, arahan pentadbiran atau dasar rasmi MARA.`,
+    buildPrompt: (v) =>
+      `Rancang sesi Homeroom bertema ${v.tema}; tempoh ${v.tempoh} minit; bentuk ${v.bentuk}. Sertakan aktiviti yang sesuai di maktab berasrama dan cara mengukur pencapaian tanpa mengumpul data sensitif.`,
+  },
 ];
 
 // Helper: cari tool ikut id (dipakai ToolRunner)

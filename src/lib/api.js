@@ -1,55 +1,133 @@
-// file: src/lib/api.js — panggilan ke API proxy /api/generate dengan token sesi
-import { supabase } from './supabase.js';
+import { supabase } from "./supabase.js";
+import { readSSE } from "./sse.js";
 
-export async function generateDocument(toolId, prompt, systemPrompt, onChunk) {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new Error('Sila log masuk terlebih dahulu.');
-
-  const res = await fetch('/api/generate', {
-    method: 'POST',
+export async function generateDocument(
+  toolId,
+  values,
+  context,
+  { onChunk, onMeta, signal } = {},
+) {
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession();
+  if (error || !session) throw new Error("Sila log masuk terlebih dahulu.");
+  const response = await fetch("/api/generate", {
+    method: "POST",
+    signal,
     headers: {
       authorization: `Bearer ${session.access_token}`,
-      'content-type': 'application/json',
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify({ toolId, prompt, systemPrompt }),
+    body: JSON.stringify({ toolId, values, context }),
   });
-
-  // Ralat: pelayan balas JSON
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    if (res.status === 429 || data.error === 'QUOTA_EXCEEDED')
-      throw new Error('Kuota harian anda telah habis. Cuba lagi esok atau naik taraf ke Pro.');
-    if (res.status === 503)
-      throw new Error('Model AI sedang sibuk. Cuba semula sebentar lagi.');
-    throw new Error(data.error || `Ralat pelayan (${res.status}).`);
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || `Ralat pelayan (${response.status}).`);
   }
-
-  // Berjaya: baca stream token demi token
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let text = '';
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const chunk = decoder.decode(value, { stream: true });
-    text += chunk;
-    if (onChunk) onChunk(text);
+  if (
+    !response.body ||
+    !response.headers.get("content-type")?.includes("text/event-stream")
+  )
+    throw new Error(
+      "Respons penjanaan tidak sah. Muat semula halaman dan cuba lagi.",
+    );
+  let text = "",
+    complete = false,
+    quotaRemaining;
+  for await (const data of readSSE(response.body)) {
+    const event = JSON.parse(data);
+    if (event.type === "meta") {
+      quotaRemaining = event.quotaRemaining;
+      onMeta?.(event);
+    }
+    if (event.type === "delta") {
+      text += event.text;
+      onChunk?.(text);
+    }
+    if (event.type === "error") throw new Error(event.error || "Janaan gagal.");
+    if (event.type === "done") {
+      complete = true;
+      quotaRemaining = event.quotaRemaining;
+    }
   }
-  return { text };
+  if (!complete || !text.trim())
+    throw new Error(
+      "Janaan terputus atau kosong. Hasil belum lengkap. Sila cuba lagi.",
+    );
+  return { text, quotaRemaining };
 }
-
-// Kuota semasa: jumlah penggunaan hari ini daripada jadual quota_usage
 export async function getQuotaToday() {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  const { data: profile } = await supabase
-    .from('profiles').select('plan, daily_quota').eq('id', user.id).single();
-  const today = new Date().toISOString().slice(0, 10);
-  const { data: usage } = await supabase
-    .from('quota_usage').select('used').eq('user_id', user.id).eq('usage_date', today).maybeSingle();
-  return {
-    plan: profile?.plan ?? 'free',
-    dailyQuota: profile?.daily_quota ?? 5,
-    used: usage?.used ?? 0,
-  };
+  const { data, error } = await supabase.rpc("get_daily_quota");
+  if (error || !data)
+    throw new Error("Kuota tidak dapat dimuatkan. Sila cuba semula.");
+  return data;
+}
+export async function currentUser() {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+  if (error || !user) throw new Error("Sesi tamat. Sila log masuk semula.");
+  return user;
+}
+export async function getTeachingProfile() {
+  const user = await currentUser();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("full_name,teaching_context")
+    .eq("id", user.id)
+    .single();
+  if (error) throw new Error("Profil pengajaran tidak dapat dimuatkan.");
+  return data;
+}
+export async function saveTeachingProfile(fullName, context) {
+  const user = await currentUser();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ full_name: fullName, teaching_context: context })
+    .eq("id", user.id);
+  if (error) throw new Error("Profil tidak dapat disimpan. Sila cuba semula.");
+}
+export async function listDocuments() {
+  const { data, error } = await supabase
+    .from("saved_documents")
+    .select("id,tool_id,title,created_at")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) throw new Error("Dokumen tidak dapat dimuatkan.");
+  return data;
+}
+export async function getDocument(id) {
+  const { data, error } = await supabase
+    .from("saved_documents")
+    .select("id,tool_id,title,content,created_at")
+    .eq("id", id)
+    .single();
+  if (error) throw new Error("Dokumen tidak ditemukan atau tiada akses.");
+  return data;
+}
+export async function saveDocument(toolId, title, content) {
+  const user = await currentUser();
+  if (
+    !title.trim() ||
+    title.length > 160 ||
+    !content.trim() ||
+    content.length > 150000
+  )
+    throw new Error("Tajuk atau kandungan dokumen tidak sah.");
+  const { data, error } = await supabase
+    .from("saved_documents")
+    .insert({ user_id: user.id, tool_id: toolId, title: title.trim(), content })
+    .select("id")
+    .single();
+  if (error) throw new Error("Dokumen tidak dapat disimpan. Sila cuba semula.");
+  return data;
+}
+export async function deleteDocument(id) {
+  const { error } = await supabase
+    .from("saved_documents")
+    .delete()
+    .eq("id", id);
+  if (error) throw new Error("Dokumen tidak dapat dipadam.");
 }

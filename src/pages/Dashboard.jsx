@@ -1,3 +1,4 @@
+import { useTeaching } from "../context/TeachingContext.jsx";
 import StudioArt from "../components/StudioArt.jsx";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -7,10 +8,17 @@ import { getQuotaToday } from "../lib/api.js";
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { context, fullName } = useTeaching();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Semua");
   const [quota, setQuota] = useState(null);
   const [quotaError, setQuotaError] = useState(false);
+  const reloadQuota = () => {
+    setQuotaError(false);
+    getQuotaToday()
+      .then(setQuota)
+      .catch(() => setQuotaError(true));
+  };
 
   useEffect(() => {
     getQuotaToday()
@@ -46,11 +54,12 @@ export default function Dashboard() {
       </div>
       <section className="welcome-banner">
         <div>
-          <span className="pill">✦ Pembantu AI peribadi cikgu</span>
+          <span className="pill">✦ Pembantu guru MRSM</span>
           <h2>
             Selamat kembali,
             <br />
-            Cikgu {user.name.split(" ")[0]} <span className="sun">✧</span>
+            Cikgu {(fullName || user.name).split(" ")[0]}{" "}
+            <span className="sun">✧</span>
           </h2>
           <p>
             Lebih masa untuk mengajar.
@@ -63,6 +72,32 @@ export default function Dashboard() {
         </div>
         <StudioArt />
       </section>
+      <div className="mrsm-context-strip">
+        <span>
+          ⌂ {context.maktab || "Ruang guru MRSM"} · {context.program} ·{" "}
+          {context.tingkatan}
+        </span>
+        <Link to="/settings">Sesuaikan profil →</Link>
+      </div>
+      {quotaError && (
+        <div role="alert" className="alert alert-error">
+          Kuota tidak dapat dimuatkan.{" "}
+          <button className="btn btn-ghost btn-sm" onClick={reloadQuota}>
+            Cuba semula
+          </button>
+        </div>
+      )}
+      <nav className="mrsm-shortcuts" aria-label="Pintasan MRSM">
+        <Link to="/tools/prep-mrsm" className="btn btn-ghost btn-sm">
+          🌙 Rancang prep
+        </Link>
+        <Link to="/tools/homeroom-mrsm" className="btn btn-ghost btn-sm">
+          🤝 Aktiviti Homeroom
+        </Link>
+        <Link to="/documents" className="btn btn-ghost btn-sm">
+          ▤ Dokumen saya
+        </Link>
+      </nav>
       <section className="stats-grid" aria-label="Ringkasan ruang kerja">
         <div className="stat-card stat-lilac">
           <span className="stat-icon">▦</span>
@@ -159,8 +194,7 @@ export default function Dashboard() {
       ) : (
         <div className="grid">
           {filtered.map((t) => {
-            const locked =
-              t.plan === "pro" && quota !== null && quota.plan !== "pro";
+            const locked = t.plan === "pro" && quota?.plan !== "pro";
             return (
               <Link
                 key={t.id}
@@ -175,7 +209,7 @@ export default function Dashboard() {
                 <h3>{t.name}</h3>
                 <p>{t.description}</p>
                 <span className="run-hint">
-                  {locked ? "Naik taraf untuk guna →" : "Guna sekarang →"}
+                  {locked ? "Memerlukan pelan Pro →" : "Guna sekarang →"}
                 </span>
               </Link>
             );
@@ -187,7 +221,7 @@ export default function Dashboard() {
           ✦
         </span>
         <div>
-          <h2>Pengajaran hebat bermula dengan satu idea.</h2>
+          <h2>Pengajaran MRSM bermula dengan satu idea.</h2>
           <p>Disesuaikan dengan KSSM dan DSKP, dalam Bahasa Melayu.</p>
         </div>
         <Link to="/tools/nota-ringkas-kssm" className="btn btn-ghost">

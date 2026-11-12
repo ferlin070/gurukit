@@ -1,56 +1,104 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { supabase } from '../lib/supabase.js';
-
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
+import { supabase } from "../lib/supabase.js";
 const AuthContext = createContext(null);
-
+const userView = (user) =>
+  user
+    ? {
+        email: user.email,
+        name: user.user_metadata?.name || "Guru",
+        id: user.id,
+      }
+    : null;
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
+  const [user, setUser] = useState(null),
+    [loading, setLoading] = useState(true),
+    [authError, setAuthError] = useState("");
   useEffect(() => {
-    // Pulihkan sesi + langgar perubahan auth
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ? { email: session.user.email, name: session.user.user_metadata?.name || 'Guru', id: session.user.id } : null);
-      setLoading(false);
+    let active = true;
+    supabase.auth
+      .getSession()
+      .then(({ data: { session }, error }) => {
+        if (active) {
+          setUser(userView(session?.user));
+          setAuthError(
+            error ? "Sesi tidak dapat dipulihkan. Sila log masuk semula." : "",
+          );
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setAuthError("Sesi tidak dapat dimuatkan. Sila log masuk semula.");
+          setLoading(false);
+        }
+      });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (active) {
+        setUser(userView(session?.user));
+        setLoading(false);
+      }
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ? { email: session.user.email, name: session.user.user_metadata?.name || 'Guru', id: session.user.id } : null);
-    });
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, []);
-
   const login = useCallback(async ({ email, password }) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(error.message === 'Invalid login credentials'
-      ? 'E-mel atau kata laluan tidak sah.' : error.message);
-    return { email: data.user.email, name: data.user.user_metadata?.name || 'Guru' };
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    if (error)
+      throw new Error(
+        error.message === "Invalid login credentials"
+          ? "E-mel atau kata laluan tidak sah."
+          : error.message === "Email not confirmed"
+            ? "Sila sahkan e-mel sebelum log masuk."
+            : "Log masuk gagal. Semak sambungan atau cuba lagi sebentar.",
+      );
+    setUser(userView(data.user));
+    setAuthError("");
+    return userView(data.user);
   }, []);
-
   const signup = useCallback(async ({ name, email, password }) => {
     const { data, error } = await supabase.auth.signUp({
-      email, password,
-      options: { data: { name } },
+      email: email.trim(),
+      password,
+      options: { data: { name: name.trim() } },
     });
-    if (error) throw new Error(error.message.includes('already registered')
-      ? 'Akaun dengan e-mel ini sudah wujud.' : error.message);
-    if (!data.session) throw new Error('Sila sahkan e-mel anda sebelum log masuk.');
-    return { email: data.user.email, name };
+    if (error)
+      throw new Error(
+        "Pendaftaran tidak dapat diproses. Semak maklumat atau cuba log masuk jika sudah berdaftar.",
+      );
+    return { requiresConfirmation: !data.session };
   }, []);
-
   const logout = useCallback(async () => {
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      setAuthError("Log keluar gagal. Sila cuba semula.");
+      return;
+    }
     setUser(null);
+    setAuthError("");
   }, []);
-
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, authError, login, signup, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
-
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth mesti digunakan dalam AuthProvider');
-  return ctx;
-}
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error("useAuth mesti digunakan dalam AuthProvider");
+  return context;
+};

@@ -1,8 +1,11 @@
+import { useTeaching } from "../context/TeachingContext.jsx";
 import { Outlet, NavLink, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Layout() {
-  const { user, logout } = useAuth();
+  const { user, logout, authError } = useAuth();
+  const { fullName } = useTeaching();
+  const displayName = fullName || user?.name || "Guru";
   return (
     <div className={`app-shell ${user ? "signed-in" : ""}`}>
       <a className="skip-link" href="#main-content">
@@ -15,9 +18,11 @@ export default function Layout() {
             <small>RUANG KREATIF GURU</small>
           </Link>
           <div className="sidebar-profile">
-            <span className="avatar">{user.name?.charAt(0).toUpperCase()}</span>
+            <span className="avatar">
+              {displayName.charAt(0).toUpperCase()}
+            </span>
             <strong>Hai, Cikgu!</strong>
-            <span>{user.name}</span>
+            <span>{displayName}</span>
           </div>
           <nav aria-label="Navigasi utama">
             <NavLink to="/dashboard">
@@ -26,6 +31,12 @@ export default function Layout() {
             <a href="/dashboard#alat">
               ▦ <span>Semua alat AI</span>
             </a>
+            <NavLink to="/documents">
+              ▤ <span>Dokumen saya</span>
+            </NavLink>
+            <NavLink to="/settings">
+              ⚙ <span>Profil pengajaran</span>
+            </NavLink>
           </nav>
           <div className="sidebar-note">
             <span>✦</span>
@@ -59,10 +70,10 @@ export default function Layout() {
                   Papan pemuka
                 </NavLink>
                 <span className="nav-greeting">
-                  Selamat mengajar, Cikgu {user.name.split(" ")[0]}!
+                  Selamat mengajar, Cikgu {displayName.split(" ")[0]}!
                 </span>
-                <span className="avatar avatar-small" aria-label={user.name}>
-                  {user.name.charAt(0).toUpperCase()}
+                <span className="avatar avatar-small" aria-label={displayName}>
+                  {displayName.charAt(0).toUpperCase()}
                 </span>
                 <button
                   className="mobile-logout btn btn-ghost btn-sm"
@@ -82,6 +93,18 @@ export default function Layout() {
           </nav>
         </header>
         <main id="main-content">
+          {authError && (
+            <div role="alert" className="alert alert-error">
+              {authError}
+            </div>
+          )}
+          {user && (
+            <nav className="mobile-tools" aria-label="Ruang kerja MRSM">
+              <NavLink to="/dashboard">Alat AI</NavLink>
+              <NavLink to="/documents">Dokumen saya</NavLink>
+              <NavLink to="/settings">Profil MRSM</NavLink>
+            </nav>
+          )}
           <Outlet />
         </main>
         <footer className="footer">
