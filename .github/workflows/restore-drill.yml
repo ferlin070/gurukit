@@ -162,7 +162,7 @@ jobs:
         run: |
           set -euo pipefail
           # TOC: buang EVENT TRIGGER (objek terurus Supabase yang tak boleh disentuh oleh postgres)
-          pg_restore --list /tmp/gurukit-full.dump > /tmp/full-toc.txt || docker run --rm -i -v /tmp:/out postgres:17-alpine sh -c 'pg_restore --list /out/gurukit-full.dump > /out/full-toc.txt'
+          docker run --rm --user root -v /tmp:/out postgres:17-alpine sh -c 'pg_restore --list /out/gurukit-full.dump > /out/full-toc.txt'
           grep -v 'EVENT TRIGGER' /tmp/full-toc.txt > /tmp/filtered-toc.txt || true
           echo "toc penuh: $(wc -l < /tmp/full-toc.txt) | tertapis: $(wc -l < /tmp/filtered-toc.txt)"
           set +e
