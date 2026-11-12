@@ -104,11 +104,17 @@ jobs:
         run: |
           set -euo pipefail
           docker run --rm -d --name drill-local -e POSTGRES_PASSWORD=drill -p 54329:5432 postgres:17-alpine > /dev/null
-          for i in $(seq 1 30); do
-            if docker exec drill-local pg_isready -U postgres > /dev/null 2>&1; then break; fi
-            sleep 1
+          READY=0
+          for i in $(seq 1 60); do
+            if docker exec drill-local pg_isready -U postgres -d postgres > /dev/null 2>&1; then READY=1; break; fi
+            sleep 2
           done
-          docker exec -i drill-local psql -U postgres -c 'CREATE DATABASE gurukit;' > /dev/null
+          if [ "$READY" != "1" ]; then
+            echo 'container postgres tidak sedia dalam 120s:'
+            docker logs drill-local 2>&1 | tail -20
+            exit 1
+          fi
+          docker exec drill-local psql -U postgres -c 'CREATE DATABASE gurukit;' > /dev/null
           docker cp /tmp/gurukit-full.dump drill-local:/tmp/gurukit-full.dump
           set +e
           docker exec drill-local pg_restore -U postgres -d gurukit --no-owner --no-privileges /tmp/gurukit-full.dump > /tmp/local-restore.log 2>&1
