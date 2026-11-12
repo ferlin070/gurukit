@@ -231,9 +231,10 @@ jobs:
             c.setAuthTag(buf.subarray(buf.length - 16));
             const plain = Buffer.concat([c.update(buf.subarray(17, buf.length - 16)), c.final()]);
             const plainDigest = createHash('sha256').update(plain).digest('hex');
+            const MAP = { 'supabase-full': 'gurukit-full.dump', 'roles': 'roles-snapshot.txt', 'authnote': 'auth-note.json' };
             const base = name.replace('gurukit-', '').replace('-' + process.env.DATE_TAG + '.enc', '');
-            const key = Object.keys(digests).find(k => k.startsWith(base.replace('supabase-full', 'full') ) || base.includes(k.split('.')[0].slice(0, 12)) || (base === 'full' && k === 'gurukit-full.dump') || k.startsWith(base));
-            if (!key) throw new Error('plaintext digest key tidak dijumpai untuk ' + name + ' (base=' + base + ')');
+            const key = MAP[base];
+            if (!key || !(key in digests)) throw new Error('plaintext digest key tidak dijumpai untuk ' + name + ' (base=' + base + ')');
             if (digests[key] !== plainDigest) throw new Error(`PLAINTEXT DIGEST GAGAL untuk ${name} (${key})`);
             writeFileSync('/tmp/readback-' + name, plain);
             console.log('OK', name, '| sha256_enc match | aes-gcm ok | plaintext digest match |', plain.length, 'bytes');
