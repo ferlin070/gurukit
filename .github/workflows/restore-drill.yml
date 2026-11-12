@@ -118,8 +118,8 @@ jobs:
           docker cp /tmp/gurukit-full.dump drill-local:/tmp/gurukit-full.dump
           # role Supabase diperlukan oleh polisi/ACL - cipta dummy (ikut panduan Supabase)
           docker exec drill-local psql -U postgres -d gurukit -v ON_ERROR_STOP=0 -c \
-            "do \$\$ begin
-               for r in select unnest(array['anon','authenticated','service_role','authenticator','supabase_auth_admin','supabase_storage_admin','supabase_realtime_admin','supabase_admin','supabase_functions_admin','supabase_replication_admin','pgbouncer']) loop
+            "do \$\$ declare r text; begin
+               foreach r in array array['anon','authenticated','service_role','authenticator','supabase_auth_admin','supabase_storage_admin','supabase_realtime_admin','supabase_admin','supabase_functions_admin','supabase_replication_admin','pgbouncer'] loop
                  execute format('CREATE ROLE %I NOLOGIN', r);
                end loop;
              end \$\$;"
