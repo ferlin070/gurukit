@@ -1,3 +1,13 @@
+import { Navigate } from "react-router-dom";
+import {
+  DEFAULT_RPH_TEMPLATE,
+  validateRphTemplate,
+  parseGeneratedRph,
+  renderRph,
+} from "../lib/rph-template.js";
+import { malaysiaDate } from "../data/mrsm.js";
+import { getRphTemplate } from "../lib/api.js";
+import WordExportButton from "../components/WordExportButton.jsx";
 import { useState, useRef, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { TOOLS } from "../data/tools.js";
@@ -10,6 +20,8 @@ import DocumentContent from "../components/DocumentContent.jsx";
 
 export default function ToolRoute() {
   const { toolId } = useParams();
+  if (toolId === "bank-soalan-jsu")
+    return <Navigate to="/question-bank" replace />;
   return <ToolRunner key={toolId} toolId={toolId} />;
 }
 function ToolRunner({ toolId }) {
@@ -33,6 +45,28 @@ function ToolRunner({ toolId }) {
     [title, setTitle] = useState(""),
     [saving, setSaving] = useState(false),
     [saved, setSaved] = useState(false);
+  const [template, setTemplate] = useState(DEFAULT_RPH_TEMPLATE),
+    [templateReady, setTemplateReady] = useState(toolId !== "rph-kssm"),
+    [templateError, setTemplateError] = useState(""),
+    [lesson, setLesson] = useState({
+      date: malaysiaDate(),
+      time: "",
+      className: "",
+    });
+  const loadTemplate = async () => {
+    setTemplateReady(false);
+    setTemplateError("");
+    try {
+      const value = await getRphTemplate();
+      setTemplate(validateRphTemplate(value || DEFAULT_RPH_TEMPLATE));
+      setTemplateReady(true);
+    } catch (e) {
+      setTemplateError(e.message);
+    }
+  };
+  useEffect(() => {
+    if (toolId === "rph-kssm") loadTemplate();
+  }, [toolId]);
   const controller = useRef(null);
   const running = status === "running",
     complete = status === "complete";
@@ -101,10 +135,20 @@ function ToolRunner({ toolId }) {
     controller.current = active;
     try {
       const result = await generateDocument(tool.id, input, teaching, {
-        onChunk: setOutput,
+        onChunk: toolId === "rph-kssm" ? undefined : setOutput,
+        ...(toolId === "rph-kssm" ? { rphTemplate: template, lesson } : {}),
         signal: active.signal,
       });
-      setOutput(result.text);
+      setOutput(
+        toolId === "rph-kssm"
+          ? renderRph(parseGeneratedRph(result.text), template, {
+              context: teaching,
+              values: input,
+              lesson,
+              teacher: profile.fullName,
+            })
+          : result.text,
+      );
       setStatus("complete");
     } catch (e) {
       setStatus("partial");
@@ -203,6 +247,63 @@ function ToolRunner({ toolId }) {
       <div className="runner-grid">
         <form className="card runner-form" onSubmit={run}>
           <h2>Maklumat pengajaran</h2>
+          {toolId === "rph-kssm" && (
+            <div className="rph-session-fields">
+              {templateError ? (
+                <div role="alert" className="alert alert-error">
+                  {templateError}{" "}
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-ghost"
+                    onClick={loadTemplate}
+                  >
+                    Muat semula templat
+                  </button>
+                </div>
+              ) : (
+                <p className="context-note">
+                  Templat: {template.title} · {template.layout}.{" "}
+                  <Link to="/rph-template">Ubah templat maktab →</Link>
+                </p>
+              )}
+              <label>
+                Tarikh pengajaran
+                <input
+                  type="date"
+                  value={lesson.date}
+                  onChange={(e) =>
+                    setLesson((v) => ({ ...v, date: e.target.value }))
+                  }
+                  disabled={running}
+                />
+              </label>
+              <label>
+                Masa pengajaran
+                <input
+                  value={lesson.time}
+                  placeholder="Contoh: 8:00–9:00 pagi"
+                  maxLength={60}
+                  onChange={(e) =>
+                    setLesson((v) => ({ ...v, time: e.target.value }))
+                  }
+                  disabled={running}
+                />
+              </label>
+              <label>
+                Kelas khusus
+                <input
+                  value={lesson.className}
+                  placeholder="Contoh: 4 Bestari"
+                  maxLength={100}
+                  onChange={(e) =>
+                    setLesson((v) => ({ ...v, className: e.target.value }))
+                  }
+                  disabled={running}
+                />
+              </label>
+            </div>
+          )}
+
           {tool.fields.map((f) => (
             <label key={f.name}>
               {f.label}
@@ -239,7 +340,9 @@ function ToolRunner({ toolId }) {
           )}
           <button
             className="btn btn-primary btn-block"
-            disabled={running || !quota || locked || !profile.ready}
+            disabled={
+              running || !quota || locked || !profile.ready || !templateReady
+            }
           >
             {running ? "Sedang menjana…" : "✨ Jana Sekarang"}
           </button>
@@ -258,6 +361,11 @@ function ToolRunner({ toolId }) {
             <h2>Hasil pengajaran</h2>
             {complete && (
               <div className="output-actions">
+                <WordExportButton
+                  content={output}
+                  title={title || tool.name}
+                  onError={setError}
+                />
                 <button
                   className="btn btn-ghost btn-sm"
                   onClick={() => window.print()}

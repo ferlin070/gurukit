@@ -1,3 +1,7 @@
+import { parseGeneratedBank } from "../src/lib/question-bank.js";
+import {
+  parseGeneratedRph,
+} from "../src/lib/rph-template.js";
 import { randomUUID } from "node:crypto";
 import {
   prepareGeneration,
@@ -11,6 +15,9 @@ const MODELS = [
   "gemini-3.1-flash-lite",
 ];
 const MESSAGES = {
+  INVALID_BANK_OUTPUT:
+    "Struktur soalan atau skema tidak sepadan dengan JSU. Cuba kurangkan bilangan soalan dan jana semula.",
+  INVALID_RPH_OUTPUT: "Struktur templat RPH tidak lengkap. Sila jana semula.",
   OUTPUT_TRUNCATED:
     "Hasil belum lengkap kerana mencapai had panjang. Kecilkan skop dan jana semula.",
   EMPTY_OUTPUT:
@@ -227,6 +234,20 @@ export function createGenerationHandler({
       }
       if (!text.trim()) throw new Error("EMPTY_OUTPUT");
       if (!complete) throw new Error("GENERATION_FAILED");
+      if (input.blueprint) {
+        try {
+          parseGeneratedBank(text, input.blueprint);
+        } catch {
+          throw new Error("INVALID_BANK_OUTPUT");
+        }
+      }
+      if (input.rphTemplate) {
+        try {
+          parseGeneratedRph(text);
+        } catch {
+          throw new Error("INVALID_RPH_OUTPUT");
+        }
+      }
       await finish(true);
       event("done", { quotaRemaining: remaining });
       res.end();

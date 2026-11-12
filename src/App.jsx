@@ -1,4 +1,6 @@
 import { lazy, Suspense } from "react";
+const RphTemplate = lazy(() => import("./pages/RphTemplate.jsx"));
+const QuestionBank = lazy(() => import("./pages/QuestionBank.jsx"));
 import { TeachingProvider } from "./context/TeachingContext.jsx";
 const Settings = lazy(() => import("./pages/Settings.jsx"));
 const Documents = lazy(() => import("./pages/Documents.jsx"));
@@ -40,6 +42,22 @@ export default function App() {
                 element={
                   <ProtectedRoute>
                     <Settings />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/rph-template"
+                element={
+                  <ProtectedRoute>
+                    <RphTemplate />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/question-bank"
+                element={
+                  <ProtectedRoute>
+                    <QuestionBank />
                   </ProtectedRoute>
                 }
               />

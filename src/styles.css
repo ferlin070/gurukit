@@ -1896,3 +1896,225 @@ main {
     display: none !important;
   }
 }
+/* Editable teaching packs */
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+fieldset:disabled {
+  opacity: 0.7;
+}
+.template-section-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+}
+.template-section-row > div {
+  display: flex;
+  gap: 0.25rem;
+}
+.template-preview {
+  max-height: 1000px;
+  overflow: auto;
+}
+.template-section-row label {
+  margin: 0.3rem 0 1rem;
+}
+.bank-library {
+  margin-bottom: 1.25rem;
+}
+.bank-library-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.bank-library-controls label {
+  flex: 1;
+  font-size: 0.8rem;
+  font-weight: 700;
+  min-width: 200px;
+}
+.bank-library select {
+  width: 100%;
+  display: block;
+  padding: 0.8rem;
+  border: 1px solid #ddcce5;
+  border-radius: 12px;
+  color: var(--text);
+  background: #fffaf5;
+  margin-top: 0.4rem;
+}
+.bank-library .context-note {
+  margin: 1rem 0 0;
+}
+.bank-builder {
+  margin-bottom: 1.25rem;
+}
+.bank-builder h2:not(:first-child) {
+  margin-top: 1.2rem;
+}
+.jsu-table-scroll {
+  overflow-x: auto;
+  margin: 0.8rem 0 1rem;
+}
+.jsu-editor {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 980px;
+  font-size: 0.75rem;
+}
+.jsu-editor th,
+.jsu-editor td {
+  border: 1px solid #decfe8;
+  padding: 0.45rem;
+}
+.jsu-editor th {
+  background: #f0e5f6;
+  color: #674d7d;
+}
+.jsu-editor caption {
+  text-align: left;
+  font-weight: 700;
+  color: #665074;
+  padding-bottom: 0.6rem;
+}
+.runner-form .jsu-editor input,
+.runner-form .jsu-editor select {
+  margin: 0;
+  padding: 0.5rem;
+  border-radius: 8px;
+  width: 100%;
+  font-size: 0.75rem;
+}
+.jsu-editor td:first-child {
+  min-width: 200px;
+}
+.jsu-editor td:nth-child(2) {
+  min-width: 110px;
+}
+.jsu-editor td:nth-child(3) {
+  min-width: 95px;
+}
+.jsu-editor td:nth-child(n + 4):nth-child(-n + 9) {
+  min-width: 65px;
+}
+.jsu-summary {
+  display: flex;
+  flex-direction: column;
+  background: #f0e8f6;
+  padding: 0.8rem 1rem;
+  border-radius: 12px;
+  margin: 0.8rem 0;
+  color: #604575;
+  font-size: 0.9rem;
+}
+.jsu-summary span {
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}
+.bank-result-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.bank-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1.2rem 0;
+}
+.bank-export {
+  margin: 1rem 0;
+}
+.question-edit-card {
+  border: 1px solid #dfcde9;
+  border-radius: 16px;
+  padding: 1rem;
+  margin: 1.2rem 0;
+  background: #fcf8fe;
+}
+.question-edit-card legend {
+  padding: 0 0.5rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #694c7e;
+}
+.rubric-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px auto;
+  align-items: center;
+  gap: 0.6rem;
+}
+.sidebar {
+  overflow-y: auto;
+}
+.sidebar-note {
+  margin-top: 1.5rem;
+}
+.bank-print-area {
+  padding-top: 1rem;
+}
+.question-bank-page .bank-print-area .document-content {
+  font-size: 0.9rem;
+}
+@media (max-width: 760px) {
+  .template-section-row {
+    gap: 0.4rem;
+  }
+  .rubric-row {
+    grid-template-columns: minmax(0, 1fr) 80px;
+  }
+  .rubric-row > .btn {
+    grid-column: 1/-1;
+    justify-self: start;
+  }
+  .bank-result-toolbar {
+    align-items: flex-start;
+  }
+  .bank-library-controls {
+    gap: 0.7rem;
+  }
+}
+@media print {
+  .question-bank-page > .page-head,
+  .bank-library,
+  .bank-builder,
+  .bank-result-toolbar,
+  .bank-tabs,
+  .bank-export,
+  .question-bank-page > .alert,
+  .question-bank-page > .success-message,
+  .blueprint-preview {
+    display: none !important;
+  }
+  .bank-result {
+    border: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+  .bank-print-area {
+    padding: 0 !important;
+  }
+  .bank-print-area .document-content {
+    font-size: 11pt !important;
+  }
+  .question-bank-page .notice {
+    display: none !important;
+  }
+  .question-editor {
+    display: none !important;
+  }
+  .template-editor {
+    display: none !important;
+  }
+  .template-preview {
+    overflow: visible;
+    max-height: none;
+  }
+}

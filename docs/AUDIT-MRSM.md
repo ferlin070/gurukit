@@ -2,6 +2,8 @@
 
 Tarikh: 12 November 2026 (Malaysia). Sasaran: semua guru MRSM, KSSM/DSKP sebagai asas lalai.
 
+Pakej Word, templat RPH dan bank soalan/JSU ditambah selepas audit asas ini. Lihat [panduan pakej pengajaran](TEACHING-PACK.md) untuk ciri dan batasan terkini.
+
 ## Penemuan sebelum pembaikan
 
 | Tahap     | Penemuan yang disahkan                                                                                                         | Pembaikan                                                                                                                                                                                                 |

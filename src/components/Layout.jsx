@@ -31,6 +31,12 @@ export default function Layout() {
             <a href="/dashboard#alat">
               ▦ <span>Semua alat AI</span>
             </a>
+            <NavLink to="/question-bank">
+              ▦ <span>Bank soalan & JSU</span>
+            </NavLink>
+            <NavLink to="/rph-template">
+              ▧ <span>Templat RPH</span>
+            </NavLink>
             <NavLink to="/documents">
               ▤ <span>Dokumen saya</span>
             </NavLink>
@@ -101,7 +107,15 @@ export default function Layout() {
           {user && (
             <nav className="mobile-tools" aria-label="Ruang kerja MRSM">
               <NavLink to="/dashboard">Alat AI</NavLink>
+              <NavLink to="/question-bank">
+                ▦ <span>Bank soalan & JSU</span>
+              </NavLink>
+              <NavLink to="/rph-template">
+                ▧ <span>Templat RPH</span>
+              </NavLink>
               <NavLink to="/documents">Dokumen saya</NavLink>
+              <NavLink to="/question-bank">Bank & JSU</NavLink>
+              <NavLink to="/rph-template">Templat RPH</NavLink>
               <NavLink to="/settings">Profil MRSM</NavLink>
             </nav>
           )}

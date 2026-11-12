@@ -1,3 +1,4 @@
+import WordExportButton from "../components/WordExportButton.jsx";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { listDocuments, getDocument, deleteDocument } from "../lib/api.js";
@@ -139,6 +140,11 @@ export default function Documents() {
               <div className="document-toolbar">
                 <h2>{document.title}</h2>
                 <div className="output-actions">
+                  <WordExportButton
+                    content={document.content}
+                    title={document.title}
+                    onError={setError}
+                  />
                   <button
                     className="btn btn-ghost btn-sm"
                     onClick={() => window.print()}

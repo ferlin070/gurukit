@@ -5,7 +5,7 @@ export async function generateDocument(
   toolId,
   values,
   context,
-  { onChunk, onMeta, signal } = {},
+  { onChunk, onMeta, signal, rphTemplate, lesson } = {},
 ) {
   const {
     data: { session },
@@ -19,7 +19,12 @@ export async function generateDocument(
       authorization: `Bearer ${session.access_token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ toolId, values, context }),
+    body: JSON.stringify({
+      toolId,
+      values,
+      context,
+      ...(rphTemplate ? { rphTemplate, lesson } : {}),
+    }),
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
@@ -130,4 +135,62 @@ export async function deleteDocument(id) {
     .delete()
     .eq("id", id);
   if (error) throw new Error("Dokumen tidak dapat dipadam.");
+}
+
+export async function getRphTemplate() {
+  const user = await currentUser();
+  const { data, error } = await supabase
+    .from("rph_templates")
+    .select("config")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (error) throw new Error("Templat RPH tidak dapat dimuatkan.");
+  return data?.config || null;
+}
+export async function saveRphTemplate(config) {
+  const user = await currentUser();
+  const { error } = await supabase
+    .from("rph_templates")
+    .upsert(
+      { user_id: user.id, config, updated_at: new Date().toISOString() },
+      { onConflict: "user_id" },
+    );
+  if (error) throw new Error("Templat RPH tidak dapat disimpan.");
+}
+export async function listQuestionBanks() {
+  const { data, error } = await supabase
+    .from("question_banks")
+    .select("id,title,updated_at")
+    .order("updated_at", { ascending: false })
+    .limit(100);
+  if (error) throw new Error("Senarai bank soalan tidak dapat dimuatkan.");
+  return data;
+}
+export async function getQuestionBank(id) {
+  const { data, error } = await supabase
+    .from("question_banks")
+    .select("id,payload")
+    .eq("id", id)
+    .single();
+  if (error) throw new Error("Bank soalan tidak ditemukan atau tiada akses.");
+  return data;
+}
+export async function saveQuestionBank(payload, id) {
+  const user = await currentUser();
+  const item = {
+    user_id: user.id,
+    title: payload.meta.title,
+    payload,
+    updated_at: new Date().toISOString(),
+  };
+  const query = id
+    ? supabase.from("question_banks").update(item).eq("id", id)
+    : supabase.from("question_banks").insert(item);
+  const { data, error } = await query.select("id").single();
+  if (error) throw new Error("Bank soalan tidak dapat disimpan.");
+  return data;
+}
+export async function deleteQuestionBank(id) {
+  const { error } = await supabase.from("question_banks").delete().eq("id", id);
+  if (error) throw new Error("Bank soalan tidak dapat dipadam.");
 }

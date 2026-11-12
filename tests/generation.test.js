@@ -1,3 +1,4 @@
+import { DEFAULT_RPH_TEMPLATE } from "../src/lib/rph-template.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
@@ -14,11 +15,20 @@ const valuesFor = (tool) =>
   Object.fromEntries(
     tool.fields.map((f) => [
       f.name,
-      f.name === "markah"
-        ? "P001, 45\nP002, 88"
-        : f.default ||
-          f.options?.[0] ||
-          (f.name === "bilangan" ? "3" : "Topik ujian KSSM"),
+      f.name === "blueprint"
+        ? JSON.stringify([
+            {
+              topic: "Algebra",
+              type: "Objektif",
+              marks: 1,
+              counts: [1, 0, 0, 0, 0, 0],
+            },
+          ])
+        : f.name === "markah"
+          ? "P001, 45\nP002, 88"
+          : f.default ||
+            f.options?.[0] ||
+            (f.name === "bilangan" ? "3" : "Topik ujian KSSM"),
     ]),
   );
 const body = {
@@ -220,7 +230,11 @@ function fixture(options = {}) {
           {
             content: {
               parts: [
-                { text: options.empty ? "" : "# Bahan MRSM\nHasil guru." },
+                {
+                  text: options.empty
+                    ? ""
+                    : (options.streamText ?? "# Bahan MRSM\nHasil guru."),
+                },
               ],
             },
             finishReason: options.truncated ? "MAX_TOKENS" : "STOP",
@@ -412,4 +426,84 @@ test("auth service failure is not reported as an invalid user token", async () =
   assert.equal(f.res.statusCode, 503);
   assert.equal(f.res.jsonValue.code, "AUTH_UNAVAILABLE");
   assert.ok(!f.calls.some((c) => c[0] === "reserve_generation"));
+});
+
+const bankBody = {
+  toolId: "bank-soalan-jsu",
+  values: {
+    subjek: "Matematik",
+    tingkatan: "Tingkatan 4",
+    blueprint: JSON.stringify([
+      {
+        topic: "Algebra",
+        type: "Objektif",
+        marks: 1,
+        counts: [1, 0, 0, 0, 0, 0],
+      },
+    ]),
+  },
+};
+test("bank output that violates JSU is refunded before completion", async () => {
+  const f = fixture({
+    body: bankBody,
+    streamText: JSON.stringify({ questions: [] }),
+  });
+  await f.run();
+  assert.ok(f.res.chunks.join("").includes("INVALID_BANK_OUTPUT"));
+  assert.ok(!f.res.chunks.join("").includes("event: done"));
+  assert.deepEqual(
+    f.calls
+      .filter((c) => c[0] === "finish_generation")
+      .map((c) => c[1].p_success),
+    [false],
+  );
+});
+test("valid structured bank is finalized once", async () => {
+  const f = fixture({
+    body: bankBody,
+    streamText: JSON.stringify({
+      questions: [
+        {
+          number: 1,
+          stem: "Pilih ungkapan.",
+          options: { A: "x", B: "2", C: "3", D: "4" },
+          answer: "A",
+        },
+      ],
+    }),
+  });
+  await f.run();
+  assert.ok(f.res.chunks.join("").includes("event: done"));
+  assert.deepEqual(
+    f.calls
+      .filter((c) => c[0] === "finish_generation")
+      .map((c) => c[1].p_success),
+    [true],
+  );
+});
+test("incomplete structured RPH is refunded", async () => {
+  const f = fixture({
+    body: { ...body, rphTemplate: DEFAULT_RPH_TEMPLATE },
+    streamText: "Plain text",
+  });
+  await f.run();
+  assert.ok(f.res.chunks.join("").includes("INVALID_RPH_OUTPUT"));
+  assert.deepEqual(
+    f.calls
+      .filter((c) => c[0] === "finish_generation")
+      .map((c) => c[1].p_success),
+    [false],
+  );
+});
+test("complete structured RPH is finalized", async () => {
+  const f = fixture({
+    body: { ...body, rphTemplate: DEFAULT_RPH_TEMPLATE },
+    streamText: JSON.stringify({
+      sections: Object.fromEntries(
+        DEFAULT_RPH_TEMPLATE.sections.map((s) => [s.key, "Isi untuk guru."]),
+      ),
+    }),
+  });
+  await f.run();
+  assert.ok(f.res.chunks.join("").includes("event: done"));
 });

@@ -1,6 +1,6 @@
 # GuruKit — ruang kreatif guru MRSM
 
-Vite + React, Supabase Auth/Postgres dan Vercel API yang menjana bahan KSSM/DSKP melalui Gemini secara berstreaming. 15 alat termasuk RPH, pentaksiran, nota, prep asrama dan Homeroom. Bahasa Melayu sebagai lalai, pilihan Bahasa Inggeris untuk DLP.
+Vite + React, Supabase Auth/Postgres dan Vercel API yang menjana bahan KSSM/DSKP melalui Gemini secara berstreaming. 16 alat termasuk RPH, pentaksiran, nota, prep asrama dan Homeroom. Bahasa Melayu sebagai lalai, pilihan Bahasa Inggeris untuk DLP.
 
 ## Pembangunan
 
@@ -29,3 +29,5 @@ Browser menghantar `toolId`, `values` dan `context`; pelayan mengesahkan JWT, in
 Pustaka dokumen menggunakan RLS pemilik. Guru perlu menyemak fakta dan standard sebenar. Jangan masukkan nama penuh atau data sensitif pelajar; alat markah memerlukan ID samaran.
 
 Lihat [audit MRSM](docs/AUDIT-MRSM.md) untuk penemuan, bukti pengujian dan batasan. Deploy melalui push ke `main` → Vercel; sahkan deployment bagi commit tersebut READY sebelum melaporkan selesai.
+
+Pakej Word, templat RPH maktab dan bank soalan/JSU: lihat [panduan penggunaan](docs/TEACHING-PACK.md). Untuk pemasangan baharu, jalankan juga migrasi `supabase/migrations/20261112060000_teaching_pack.sql` selepas migrasi keselamatan MRSM.

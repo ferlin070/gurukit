@@ -88,6 +88,12 @@ export default function Dashboard() {
         </div>
       )}
       <nav className="mrsm-shortcuts" aria-label="Pintasan MRSM">
+        <Link to="/question-bank" className="btn btn-ghost btn-sm">
+          ▦ Bank soalan & JSU
+        </Link>
+        <Link to="/rph-template" className="btn btn-ghost btn-sm">
+          ▧ Templat RPH
+        </Link>
         <Link to="/tools/prep-mrsm" className="btn btn-ghost btn-sm">
           🌙 Rancang prep
         </Link>
@@ -198,7 +204,11 @@ export default function Dashboard() {
             return (
               <Link
                 key={t.id}
-                to={`/tools/${t.id}`}
+                to={
+                  t.id === "bank-soalan-jsu"
+                    ? "/question-bank"
+                    : `/tools/${t.id}`
+                }
                 className={`card tool-card ${locked ? "tool-locked" : ""}`}
               >
                 <div className="tool-card-top">

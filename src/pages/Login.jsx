@@ -11,7 +11,9 @@ export default function Login() {
   const requested = location.state?.from?.pathname;
   const from =
     typeof requested === "string" &&
-    /^\/(dashboard|documents|settings|tools\/[a-z0-9-]+)$/.test(requested)
+    /^\/(dashboard|documents|settings|rph-template|question-bank|tools\/[a-z0-9-]+)$/.test(
+      requested,
+    )
       ? requested
       : "/dashboard";
   const [form, setForm] = useState({ email: "", password: "" });

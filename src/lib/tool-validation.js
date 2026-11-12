@@ -1,3 +1,4 @@
+import { buildBlueprint } from "./question-bank.js";
 import {
   DEFAULT_CONTEXT,
   PROGRAMS,
@@ -75,6 +76,19 @@ export function validateValues(tool, raw) {
       "Input terlalu panjang. Ringkaskan bahan kepada 24,000 aksara.",
     );
   if (tool.id === "analisis-prestasi") analyseMarks(values.markah);
+  if (tool.id === "bank-soalan-jsu") {
+    let rows;
+    try {
+      rows = JSON.parse(values.blueprint);
+    } catch {
+      throw new InputError("Pelan JSU bukan JSON sah.");
+    }
+    try {
+      buildBlueprint(rows);
+    } catch (e) {
+      throw new InputError(e.message);
+    }
+  }
   return values;
 }
 export function analyseMarks(text) {

@@ -1082,6 +1082,41 @@ Setiap soalan dengan stimulus, kata pengarah aras tinggi, aras Bloom, markah, st
     buildPrompt: (v) =>
       `Rancang sesi Homeroom bertema ${v.tema}; tempoh ${v.tempoh} minit; bentuk ${v.bentuk}. Sertakan aktiviti yang sesuai di maktab berasrama dan cara mengukur pencapaian tanpa mengumpul data sensitif.`,
   },
+  {
+    id: "bank-soalan-jsu",
+    plan: "free",
+    name: "Bank Soalan & JSU",
+    icon: "🗂️",
+    category: C_PENTAKSIRAN,
+    description:
+      "Bina pelan aras Bloom, jana dan sunting soalan, simpan bank serta eksport kertas, skema dan JSU berasingan.",
+    fields: [
+      { name: "subjek", label: "Subjek", type: "text", required: true },
+      {
+        name: "tingkatan",
+        label: "Tingkatan",
+        type: "select",
+        options: [
+          "Tingkatan 1",
+          "Tingkatan 2",
+          "Tingkatan 3",
+          "Tingkatan 4",
+          "Tingkatan 5",
+        ],
+        default: "Tingkatan 1",
+      },
+      {
+        name: "blueprint",
+        label: "Pelan JSU",
+        type: "textarea",
+        required: true,
+      },
+    ],
+    systemPrompt: `Anda membantu guru MRSM menyediakan bank soalan KSSM berdasarkan pelan JSU yang telah dikira sistem. Setiap item mesti tepat nombor, topik, jenis, aras Bloom dan markah yang ditentukan. Jangan menambah atau mengurangkan soalan atau mengubah markah. Bloom ialah kemahiran kognitif, bukan gred atau aras kesukaran rasmi. C1 mengingat, C2 memahami, C3 mengaplikasi, C4 menganalisis, C5 menilai, C6 mencipta. Sediakan soalan sebenar, bukan nota atau arahan kepada guru. Untuk objektif, sediakan empat pilihan A–D yang berbeza, satu jawapan betul dan penjelasan. Jangan dedahkan jawapan dalam teks soalan. Untuk struktur/esei, berikan jawapan contoh dan rubrik dengan markah integer positif yang jumlahnya tepat sama dengan markah item. Jangan masukkan nama sebenar atau data pelajar. Jangan mendakwa soalan ini diluluskan pihak peperiksaan atau MARA.
+KELUARAN WAJIB JSON sahaja tanpa pembungkus Markdown: {"questions":[{"number":1,"stem":"teks soalan","options":{"A":"pilihan","B":"pilihan","C":"pilihan","D":"pilihan"},"answer":"A","explanation":"sebab"},{"number":2,"stem":"soalan subjektif","answer":"jawapan contoh","rubric":[{"point":"poin tepat","marks":1}]}]}. Guna options hanya untuk objektif, rubric hanya untuk subjektif. Ikut urutan pelan.`,
+    buildPrompt: (v) =>
+      `Subjek: ${v.subjek}. Tingkatan: ${v.tingkatan}. Rujuk pelan yang disahkan sistem selepas ini.`,
+  },
 ];
 
 // Helper: cari tool ikut id (dipakai ToolRunner)

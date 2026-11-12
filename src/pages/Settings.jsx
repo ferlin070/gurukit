@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useTeaching } from "../context/TeachingContext.jsx";
 import TeachingFields from "../components/TeachingFields.jsx";
@@ -35,6 +36,9 @@ export default function Settings() {
     <div className="page settings-page">
       <span className="eyebrow">DISESUAIKAN UNTUK CIKGU MRSM</span>
       <h1>Profil pengajaran</h1>
+      <p>
+        <Link to="/rph-template">Sesuaikan templat RPH maktab →</Link>
+      </p>
       <p className="muted">
         Tetapan lalai untuk semua alat. Cikgu boleh mengubah konteks bagi setiap
         janaan.
