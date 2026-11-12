@@ -110,7 +110,7 @@ await request(
   "PATCH",
   {
     smtp_host: "smtp.resend.com",
-    smtp_port: 465,
+    smtp_port: "465",
     smtp_user: "resend",
     smtp_pass: process.env.RESEND_API_KEY,
     smtp_admin_email: sender,
