@@ -129,7 +129,7 @@ jobs:
           set -e
           echo "pg_restore local exit=$RC"
           # ralat diterima: objek extension/terurus Supabase yang tidak wujud di Postgres biasa
-          UNEXPECTED=$(grep -E 'pg_restore: error' /tmp/local-restore.log | grep -viE 'must be owner|already exists|role .* does not exist|schema .* does not exist|extension .* is not available|cannot drop|event trigger|does not have a valid extension|no schema has been selected' || true)
+          UNEXPECTED=$(grep -E 'pg_restore: error' /tmp/local-restore.log | grep -viE 'must be owner|already exists|role .* does not exist|schema .* does not exist|extension .* is not available|extension ".*" does not exist|relation "(vault|cron|net|graphql|pgsodium|storage|realtime)\.|cannot drop|event trigger|does not have a valid extension|no schema has been selected' || true)
           if [ -n "$UNEXPECTED" ]; then
             echo 'RALAT TIDAK DIJANGAKAN SEMASA LOCAL RESTORE:'
             echo "$UNEXPECTED"
