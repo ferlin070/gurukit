@@ -109,8 +109,9 @@ jobs:
             sleep 1
           done
           docker exec -i drill-local psql -U postgres -c 'CREATE DATABASE gurukit;' > /dev/null
+          docker cp /tmp/gurukit-full.dump drill-local:/tmp/gurukit-full.dump
           set +e
-          docker exec -i drill-local pg_restore -U postgres -d gurukit --no-owner --no-privileges /dev/stdin < /tmp/gurukit-full.dump > /tmp/local-restore.log 2>&1
+          docker exec drill-local pg_restore -U postgres -d gurukit --no-owner --no-privileges /tmp/gurukit-full.dump > /tmp/local-restore.log 2>&1
           RC=$?
           set -e
           echo "pg_restore local exit=$RC (ralat kepemilikan dijangka sifar pada Postgres biasa)"
