@@ -215,6 +215,8 @@ jobs:
           test -s /tmp/toc-users.txt
           docker run --rm -i -v /tmp:/out -e URL="$DRILL_DB_URL" postgres:17-alpine \
             sh -c 'pg_restore -d "$URL" --use-list=/out/toc-users.txt --no-owner --no-privileges /out/gurukit-full.dump' > /tmp/restore-users.log 2>&1 || true
+          echo '--- pass1 (users) log ---'
+          tail -5 /tmp/restore-users.log || true
           # PASS 2: keseluruhan (objek skema already exists diterima; users dup diterima)
           set +e
           docker run --rm -i -v /tmp:/out -e URL="$DRILL_DB_URL" postgres:17-alpine \
@@ -223,7 +225,7 @@ jobs:
           set -e
           echo "pg_restore exit=$RC"
           # klasifikasi ralat: kepemilikan objek terurus Supabase = diterima; lain-lain = GAGAL
-          UNEXPECTED=$(grep -E 'pg_restore: error' /tmp/restore.log | grep -viE 'must be owner of (event trigger|table|sequence|schema|index|relation|function|type|extension|database)|already exists|multiple primary keys|duplicate key value violates unique constraint|cannot drop .* because it is required by the database system|permission denied for (function|schema|table|sequence)|there is no unique or exclusion constraint|column .* of relation .* does not exist' || true)
+          UNEXPECTED=$(grep -E 'pg_restore: error' /tmp/restore.log | grep -viE 'must be owner of (event trigger|table|sequence|schema|index|relation|function|type|extension|database)|already exists|multiple primary keys|duplicate key value violates unique constraint|violates foreign key constraint|cannot drop .* because it is required by the database system|permission denied for (function|schema|table|sequence)|there is no unique or exclusion constraint|column .* of relation .* does not exist' || true)
           if [ -n "$UNEXPECTED" ]; then
             echo 'RALAT TIDAK DIJANGAKAN SEMASA RESTORE:'
             echo "$UNEXPECTED"
@@ -276,20 +278,13 @@ jobs:
           sed 's/^MANIFEST|//' /tmp/dump-manifest.txt | sort > /tmp/m1.txt
           sed 's/^RESTORED|//' /tmp/restored-manifest.txt | sort > /tmp/m2.txt
           # jadual terurus Supabase yang dikecualikan dari TOC mungkin tiada data dipulihkan - tandakan beza
-          if diff -u /tmp/m1.txt /tmp/m2.txt; then
-            echo 'MANIFEST MATCH PENUH'
-          else
-            echo 'BEZA MANIFEST DITEMUI (analisis):'
-            # hanya terima jika semua beza melibatkan jadual yang ralat 'must be owner' semasa restore
-            MISSING=$(comm -23 /tmp/m1.txt /tmp/m2.txt || true)
-            echo "$MISSING"
-            # gagalkan jika mana-mana jadual auth/public tiada atau kosong sedangkan dump ada data
-            if echo "$MISSING" | grep -qE '(^|\|)auth\.'; then
-              echo 'GAGAL: jadual auth tiada dalam restore'
-              exit 1
-            fi
-            echo 'beza disimpan untuk semakan manual dalam summary'
+          # GERBANG KETAT: semua jadual auth/public mesti sepadan jumlah barisnya
+          if ! diff -u /tmp/m1.txt /tmp/m2.txt; then
+            echo 'GAGAL: manifest tidak sepadan - restore tidak lengkap'
+            diff /tmp/m1.txt /tmp/m2.txt || true
+            exit 1
           fi
+          echo 'MANIFEST MATCH PENUH (semua jadual auth/public/storage)'
           grep -E 'auth\.users=' /tmp/m1.txt /tmp/m2.txt || true
 
       - name: Uji login canary terpulihara (TANPA mencipta/menetapkan semula)
