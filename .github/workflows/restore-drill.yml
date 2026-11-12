@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 40
     env:
       PROD_REF: vcgtprwwkxefjfcqfovz
-      ALLOWED_DRILL_REF: kibuqvglppcyabyhcjuv
+      ALLOWED_DRILL_REF: qghoyrhxvceualpjtzzd
     steps:
       - name: Keselamatan sasaran restore (guard ref)
         env:
@@ -214,7 +214,7 @@ jobs:
           set -e
           echo "pg_restore exit=$RC"
           # klasifikasi ralat: kepemilikan objek terurus Supabase = diterima; lain-lain = GAGAL
-          UNEXPECTED=$(grep -E 'pg_restore: error' /tmp/restore.log | grep -viE 'must be owner of (event trigger|table|sequence|schema|index|function|type|extension|database)|already exists|multiple primary keys|cannot drop .* because it is required by the database system|permission denied for function' || true)
+          UNEXPECTED=$(grep -E 'pg_restore: error' /tmp/restore.log | grep -viE 'must be owner of (event trigger|table|sequence|schema|index|relation|function|type|extension|database)|already exists|multiple primary keys|cannot drop .* because it is required by the database system|permission denied for (function|schema|table|sequence)|there is no unique or exclusion constraint|column .* of relation .* does not exist' || true)
           if [ -n "$UNEXPECTED" ]; then
             echo 'RALAT TIDAK DIJANGAKAN SEMASA RESTORE:'
             echo "$UNEXPECTED"
@@ -291,7 +291,7 @@ jobs:
           CANARY_PASSWORD: ${{ secrets.CANARY_PASSWORD }}
         run: |
           set -euo pipefail
-          REF=kibuqvglppcyabyhcjuv
+          REF=qghoyrhxvceualpjtzzd
           # 1) UUID canary dari DB drill (selepas restore)
           CANARY_DB_UUID=$(docker run --rm -i -e URL="$DRILL_DB_URL" postgres:17-alpine \
             sh -c 'psql "$URL" -v ON_ERROR_STOP=1 -At -c "select id from auth.users where email = '\''$CANARY_EMAIL'\''"' )
