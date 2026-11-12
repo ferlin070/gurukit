@@ -94,7 +94,9 @@ jobs:
           const plainDigest = {};
           for (const f of process.argv.slice(2)) {
             plainDigest[f.split('/').pop()] = createHash('sha256').update(readFileSync(f)).digest('hex');
-            const iv = randomBytes(12);
+            // IV deterministik (HMAC kekunci + nama fail): retry menghasilkan ciphertext sama
+            const { createHmac } = await import('node:crypto');
+            const iv = createHmac('sha256', key32).update('gurukit-iv:' + f.split('/').pop()).digest().subarray(0, 12);
             const c = createCipheriv('aes-256-gcm', key32, iv);
             const ct = Buffer.concat([c.update(readFileSync(f)), c.final()]);
             writeFileSync(f + '.enc', Buffer.concat([Buffer.from('GKBK1'), iv, ct, c.getAuthTag()]));
@@ -131,6 +133,7 @@ jobs:
           DRIVE_CLIENT_ID: ${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}
           DRIVE_CLIENT_SECRET: ${{ secrets.GOOGLE_DRIVE_CLIENT_SECRET }}
           DRIVE_REFRESH_TOKEN: ${{ secrets.GOOGLE_DRIVE_REFRESH_TOKEN }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
           DATE_TAG: ${{ env.DATE_TAG }}
           MANIFEST_FILE: ${{ env.MANIFEST_FILE }}
         run: |
@@ -168,12 +171,26 @@ jobs:
             const name = f.split('/').pop();
             const size = statSync(f).size;
             if (existing[name]) {
+              // idempoten pada tahap PLAINTEXT: IV rawak -> ciphertext sentiasa berbeza.
+              // dengripsi fail sedia ada dan bandingkan digest plaintext dengan set semasa.
+              const { createDecipheriv, scryptSync, createHash } = await import('node:crypto');
+              const key32 = scryptSync(process.env.BACKUP_ENCRYPTION_KEY, 'gurukit-backup-v1', 32);
               const remote = Buffer.from(await (await fetch(`https://www.googleapis.com/drive/v3/files/${existing[name].id}?alt=media`, { headers: { Authorization: `Bearer ${at}` } })).arrayBuffer());
-              if (remote.length !== size) throw new Error(`RETRY CONFLICT: ${name} wujud dengan saiz berbeza (${remote.length} vs ${size}) - jangan tindih`);
-              const { createHash } = await import('node:crypto');
-              const md5 = createHash('md5').update(remote).digest('hex');
-              if (existing[name].md5Checksum && md5 !== existing[name].md5Checksum) throw new Error(`RETRY CONFLICT: md5 Drive tidak sepadan untuk ${name}`);
-              console.log('SKIP (sudah wujud, kandungan sama):', name);
+              let remotePlain = null;
+              try {
+                if (remote.subarray(0, 5).toString() !== 'GKBK1') throw new Error('bukan format GKBK1');
+                const d = createDecipheriv('aes-256-gcm', key32, remote.subarray(5, 17));
+                d.setAuthTag(remote.subarray(remote.length - 16));
+                remotePlain = Buffer.concat([d.update(remote.subarray(17, remote.length - 16)), d.final()]);
+              } catch (e) { remotePlain = null; }
+              const digests = JSON.parse(readFileSync('/tmp/plain-digests.json', 'utf8'));
+              const MAP = { 'supabase-full': 'gurukit-full.dump', 'roles': 'roles-snapshot.txt', 'authnote': 'auth-note.json' };
+              const base = name.replace('gurukit-', '').replace('-' + process.env.DATE_TAG + '.enc', '');
+              const localDigest = MAP[base] ? digests[MAP[base]] : createHash('sha256').update(readFileSync(f)).digest('hex');
+              if (!remotePlain || createHash('sha256').update(remotePlain).digest('hex') !== localDigest) {
+                throw new Error(`RETRY CONFLICT: ${name} wujud di Drive dengan kandungan BERBEZA - jangan tindih secara senyap`);
+              }
+              console.log('SKIP (set hari ini sudah wujud, plaintext digest sama):', name);
               writeFileSync('/tmp/uploaded-' + name, 'existing');
               continue;
             }
