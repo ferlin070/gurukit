@@ -34,7 +34,7 @@ jobs:
           const folder = await (await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`, { headers: { Authorization: `Bearer ${at}` } })).json();
           const fid = folder.files[0].id;
           const want = process.env.WANT;
-          const q2 = encodeURIComponent(`'${fid}' in parents and name contains 'gurukit-supabase-full-' and not name contains '.enc' = false and trashed = false`);
+          const q2 = encodeURIComponent(`'${fid}' in parents and name contains 'gurukit-supabase-full-' and trashed = false`);
           const lst = await (await fetch(`https://www.googleapis.com/drive/v3/files?q=${q2}&fields=files(id,name,createdTime)&orderBy=createdTime desc&pageSize=20`, { headers: { Authorization: `Bearer ${at}` } })).json();
           // pilih nama paling baru (dupe boleh wujud) — guna createdTime terkini per nama
           const byName = {};
