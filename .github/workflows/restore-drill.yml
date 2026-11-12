@@ -207,6 +207,8 @@ jobs:
           echo '--- pass1: data auth.users dahulu ---'
           grep -E 'TABLE DATA .* auth users' /tmp/filtered-toc.txt > /tmp/toc-users.txt || true
           echo "toc-users entries: $(wc -l < /tmp/toc-users.txt)"
+          echo '--- baris TOC mengandungi users (debug) ---'
+          grep 'users' /tmp/filtered-toc.txt | head -8 || true
           docker run --rm -i -v /tmp:/out -e URL="$DRILL_DB_URL" postgres:17-alpine \
             sh -c 'pg_restore -d "$URL" --use-list=/out/toc-users.txt --no-owner --no-privileges /out/gurukit-full.dump' > /tmp/restore-users.log 2>&1 || true
           tail -3 /tmp/restore-users.log || true
