@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '0 20 * * *'   # 04:00 MYT (UTC+8) harian
   workflow_dispatch:
+    inputs:
+      date_suffix:
+        description: 'Sufiks set tambahan hari sama (cth: b). Kosong = set biasa.'
+        required: false
+        default: ''
 
 concurrency:
   group: supabase-backup
@@ -21,8 +26,12 @@ jobs:
       DATE_TAG: ''
     steps:
       - name: Set date tag
+        env:
+          SUFFIX: ${{ github.event.inputs.date_suffix }}
         run: |
-          echo "DATE_TAG=$(date -u +%F)" >> "$GITHUB_ENV"
+          TAG=$(date -u +%F)
+          if [ -n "$SUFFIX" ]; then TAG="$TAG-$SUFFIX"; fi
+          echo "DATE_TAG=$TAG" >> "$GITHUB_ENV"
 
       - name: Dump database (PostgreSQL 17 via docker, custom format)
         env:
