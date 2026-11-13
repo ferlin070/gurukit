@@ -293,24 +293,14 @@ jobs:
         # mesti sepadan antara dump (docker) dan drill. Objek auth (milik GoTrue)
         # dijangka berbeza (dikecualikan dari restore) - dilapor sahaja.
         cat > /tmp/objects.sql <<'SQL'
-        select 'OBJ|' || n.nspname || '|' || kind || '=' || coalesce(cnt, 0)
-        from (
-          select 'public' as nspname, x.kind, count(*) as cnt
-          from (
-            select 'trigger' as kind from information_schema.triggers where trigger_schema = 'public'
-            union all select 'policy' from pg_policies where schemaname = 'public'
-            union all select 'function' from information_schema.routines where routine_schema = 'public' and routine_type = 'FUNCTION'
-            union all select 'sequence' from information_schema.sequences where sequence_schema = 'public'
-            union all select 'table' from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE'
-          ) x group by x.kind
-        ) k left join (values ('public','x')) v on true
-        union all
-        select 'OBJ|auth|' || kind || '=' || coalesce(cnt, 0)
-        from (
-          select 'trigger' as kind, count(*) as cnt from information_schema.triggers where trigger_schema = 'auth'
-          union all select 'policy', count(*) from pg_policies where schemaname = 'auth'
-          union all select 'function', count(*) from information_schema.routines where routine_schema = 'auth' and routine_type = 'FUNCTION'
-        ) a;
+        select 'OBJ|public|trigger=' || count(*) from information_schema.triggers where trigger_schema = 'public';
+        select 'OBJ|public|policy=' || count(*) from pg_policies where schemaname = 'public';
+        select 'OBJ|public|function=' || count(*) from information_schema.routines where routine_schema = 'public' and routine_type = 'FUNCTION';
+        select 'OBJ|public|sequence=' || count(*) from information_schema.sequences where sequence_schema = 'public';
+        select 'OBJ|public|table=' || count(*) from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE';
+        select 'OBJ|auth|trigger=' || count(*) from information_schema.triggers where trigger_schema = 'auth';
+        select 'OBJ|auth|policy=' || count(*) from pg_policies where schemaname = 'auth';
+        select 'OBJ|auth|function=' || count(*) from information_schema.routines where routine_schema = 'auth' and routine_type = 'FUNCTION';
         SQL
         docker cp /tmp/objects.sql drill-local:/tmp/objects.sql
         docker exec drill-local psql -U postgres -d gurukit -v ON_ERROR_STOP=1 -At -f /tmp/objects.sql | sort > /tmp/obj-dump.txt
