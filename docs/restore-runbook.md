@@ -26,8 +26,9 @@ tidak pernah melalui chat atau repo.
 
 - Bekas: `GKBK1` (5 bait) + IV 12 bait + ciphertext + GCM tag 16 bait.
 - Kunci: `scrypt(secret BACKUP_ENCRYPTION_KEY, salt 'gurukit-backup-v1', 32 bait)`.
-- IV deterministik: HMAC-SHA256(kunci, `'gurukit-iv:' + nama_fail`) → run semula
-  menghasilkan ciphertext yang sama (idempoten).
+- IV rawak `randomBytes(12)` setiap enkripsi (keperluan keselamatan GCM).
+- Idempotensi run semula dinilai pada tahap **digest plaintext** (bukan ciphertext):
+  fail sedia ada dengan plaintext sama = skip; berbeza = ABORT (tiada tindihan senyap).
 
 ## Kandungan satu set backup harian
 

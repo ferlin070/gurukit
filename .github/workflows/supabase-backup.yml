@@ -94,9 +94,9 @@ jobs:
           const plainDigest = {};
           for (const f of process.argv.slice(2)) {
             plainDigest[f.split('/').pop()] = createHash('sha256').update(readFileSync(f)).digest('hex');
-            // IV deterministik (HMAC kekunci + nama fail): retry menghasilkan ciphertext sama
-            const { createHmac } = await import('node:crypto');
-            const iv = createHmac('sha256', key32).update('gurukit-iv:' + f.split('/').pop()).digest().subarray(0, 12);
+            // IV rawak setiap enkripsi (keperluan keselamatan AES-GCM).
+            // Idempotensi dikendalikan pada tahap plaintext digest dalam guard muat naik.
+            const iv = randomBytes(12);
             const c = createCipheriv('aes-256-gcm', key32, iv);
             const ct = Buffer.concat([c.update(readFileSync(f)), c.final()]);
             writeFileSync(f + '.enc', Buffer.concat([Buffer.from('GKBK1'), iv, ct, c.getAuthTag()]));
@@ -268,7 +268,7 @@ jobs:
           test "$N" -gt 0
           echo "SET LENGKAP DISAHKAN: ${DATE_TAG}"
 
-      - name: Retention (7 set harian + 4 set mingguan; hanya fail bertag set backup penuh)
+      - name: Retention (7 set harian + 4 set mingguan; pagination penuh; set mesti lengkap)
         if: success()
         env:
           DRIVE_CLIENT_ID: ${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}
@@ -285,38 +285,48 @@ jobs:
           const folder = await (await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`, { headers: { Authorization: `Bearer ${at}` } })).json();
           const fid = folder.files[0].id;
           const PREFIXES = ['gurukit-supabase-full-', 'gurukit-roles-', 'gurukit-authnote-', 'gurukit-manifest-'];
-          const q2 = encodeURIComponent(`'${fid}' in parents and trashed = false`);
-          const lst = await (await fetch(`https://www.googleapis.com/drive/v3/files?q=${q2}&fields=files(id,name,createdTime)&pageSize=200`, { headers: { Authorization: `Bearer ${at}` } })).json();
+          const REQUIRED = ['gurukit-supabase-full-', 'gurukit-roles-', 'gurukit-authnote-', 'gurukit-manifest-'];
+          // pagination penuh
+          const all = [];
+          let pageToken = '';
+          do {
+            const q2 = encodeURIComponent(`'${fid}' in parents and trashed = false`);
+            const url = `https://www.googleapis.com/drive/v3/files?q=${q2}&fields=nextPageToken,files(id,name,createdTime)&pageSize=200` + (pageToken ? `&pageToken=${pageToken}` : '');
+            const page = await (await fetch(url, { headers: { Authorization: `Bearer ${at}` } })).json();
+            all.push(...(page.files || []));
+            pageToken = page.nextPageToken || '';
+          } while (pageToken);
           const inSet = (n) => PREFIXES.some(p => n.startsWith(p));
-          const dates = new Set();
-          for (const f of lst.files || []) {
-            if (inSet(f.name)) {
-              const m = f.name.match(/\d{4}-\d{2}-\d{2}/);
-              if (m) dates.add(m[0]);
-            }
-          }
-          const sorted = [...dates].sort().reverse();
-          const keep = new Set(sorted.slice(0, 7));
-          const sundays = sorted.filter(d => new Date(d + 'T00:00:00Z').getUTCDay() === 0);
-          sundays.slice(0, 4).forEach(d => keep.add(d));
-          const today = new Date().toISOString().slice(0, 10);
-          if (!keep.has(today)) throw new Error('set hari ini tidak dalam keep - retention dibatalkan');
-          const todayFiles = (lst.files || []).filter(f => f.name.includes(today) && inSet(f.name)).map(f => f.name);
-          for (const p of ['gurukit-manifest-', 'gurukit-supabase-full-', 'gurukit-roles-', 'gurukit-authnote-']) {
-            if (!todayFiles.some(n => n.startsWith(p))) throw new Error('set hari ini tidak lengkap (' + p + ') - retention dibatalkan');
-          }
-          let removed = 0;
-          for (const f of lst.files || []) {
-            if (!inSet(f.name)) continue; // jangan sentuh fail aplikasi/peribadi lain
+          const dates = new Map(); // date -> Set(nama fail)
+          for (const f of all) {
+            if (!inSet(f.name)) continue;
             const m = f.name.match(/\d{4}-\d{2}-\d{2}/);
             if (!m) continue;
-            if (!keep.has(m[0])) {
-              const del = await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}`, { method: 'PATCH', headers: { Authorization: `Bearer ${at}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) });
-              if (del.ok) { removed++; console.log('trashed:', f.name); }
-              else console.log('gagal trash:', f.name, del.status);
-            }
+            if (!dates.has(m[0])) dates.set(m[0], new Set());
+            dates.get(m[0]).add(f.name);
           }
-          console.log('retention siap. set dikekalkan:', [...keep].sort().join(', '), '| fail trashed:', removed);
+          const complete = (d) => { const s = dates.get(d) || new Set(); return REQUIRED.every(p => [...s].some(n => n.startsWith(p))); };
+          const sorted = [...dates.keys()].sort().reverse();
+          const keep = new Set(sorted.filter(complete).slice(0, 7));
+          const sundays = sorted.filter(d => complete(d) && new Date(d + 'T00:00:00Z').getUTCDay() === 0);
+          sundays.slice(0, 4).forEach(d => keep.add(d));
+          const today = new Date().toISOString().slice(0, 10);
+          if (!complete(today)) throw new Error('set hari ini tidak lengkap - retention dibatalkan');
+          keep.add(today); // set hari ini sentiasa dikekalkan
+          let removed = 0, keptIncomplete = 0;
+          for (const f of all) {
+            if (!inSet(f.name)) continue; // jangan sentuh fail lain
+            const m = f.name.match(/\d{4}-\d{2}-\d{2}/);
+            if (!m) continue;
+            const d = m[0];
+            if (keep.has(d)) continue;
+            if (!complete(d)) { keptIncomplete++; console.log('KEKAL (set tidak lengkap, perlu semakan):', f.name); continue; }
+            const del = await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}`, { method: 'PATCH', headers: { Authorization: `Bearer ${at}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) });
+            if (del.ok) { removed++; console.log('trashed:', f.name); }
+            else console.log('gagal trash:', f.name, del.status);
+          }
+          console.log('retention siap. set dikekalkan:', [...keep].sort().join(', '));
+          console.log('fail trashed:', removed, '| set tidak lengkap dikekalkan untuk semakan:', keptIncomplete);
           EOF
           node /tmp/retention.mjs
 

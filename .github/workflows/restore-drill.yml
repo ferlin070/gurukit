@@ -179,7 +179,7 @@ jobs:
           # TOC: buang EVENT TRIGGER + TRIGGER milik GoTrue pada auth.users
           docker run --rm --user root -v /tmp:/out postgres:17-alpine sh -c 'pg_restore --list /out/gurukit-full.dump > /out/full-toc.txt'
           grep -v 'EVENT TRIGGER' /tmp/full-toc.txt \
-            | grep -v ' TRIGGER ' \
+            | grep -vE 'TRIGGER "[^"]+" auth ' \
             > /tmp/filtered-toc.txt || true
           echo "toc penuh: $(wc -l < /tmp/full-toc.txt) | tertapis: $(wc -l < /tmp/filtered-toc.txt)"
           # pre-clean: public drop tables; auth truncate cascade; storage delete (diterima gagal)
@@ -205,15 +205,28 @@ jobs:
           drop function if exists public.handle_new_user() cascade;
           SQL
           docker run --rm -i -e URL="$DRILL_DB_URL" postgres:17-alpine \
-            sh -c 'psql "$URL" -v ON_ERROR_STOP=0 -f /dev/stdin' < /tmp/preclean.sql 2>&1 | tee /tmp/preclean.log || true
+            sh -c 'psql "$URL" -v ON_ERROR_STOP=0 -f /dev/stdin' < /tmp/preclean.sql 2>&1 | tee /tmp/preclean.log
+          # preclean: ralat kepemilikan pada storage diterima; FATAL/denied pada public/auth = gagal
+          if grep -qE 'FATAL|no connection|denied' /tmp/preclean.log; then
+            if grep -qE 'denied.*storage|FATAL|no connection' /tmp/preclean.log; then
+              echo 'GAGAL: preclean menghadapi ralat kritikal'; grep -iE 'error|denied|fatal' /tmp/preclean.log; exit 1
+            fi
+          fi
           echo '--- pass1: data auth.users dahulu ---'
           grep -E 'TABLE DATA (.* )?auth users' /tmp/filtered-toc.txt > /tmp/toc-users.txt || true
           echo "toc-users entries: $(wc -l < /tmp/toc-users.txt)"
           echo '--- baris TOC mengandungi users (debug) ---'
           grep 'users' /tmp/filtered-toc.txt | head -8 || true
+          set +e
           docker run --rm -i -v /tmp:/out -e URL="$DRILL_DB_URL" postgres:17-alpine \
-            sh -c 'pg_restore -d "$URL" --use-list=/out/toc-users.txt --no-owner --no-privileges /out/gurukit-full.dump' > /tmp/restore-users.log 2>&1 || true
+            sh -c 'pg_restore -d "$URL" --use-list=/out/toc-users.txt --no-owner --no-privileges /out/gurukit-full.dump' > /tmp/restore-users.log 2>&1
+          RC1=$?
+          set -e
+          echo "pass1 exit=$RC1"
           tail -3 /tmp/restore-users.log || true
+          if grep -qE 'FATAL|no connection' /tmp/restore-users.log; then echo 'GAGAL: pass1 ralat sambungan'; exit 1; fi
+          # pass1 mesti berjaya memuat users (COPY users tidak gagal selain dup)
+          if grep -qE 'COPY failed for table "users"' /tmp/restore-users.log; then echo 'GAGAL: COPY auth.users gagal dalam pass1'; exit 1; fi
           echo '--- pass1b: data auth.sessions ---'
           grep -E 'TABLE DATA (.* )?auth sessions' /tmp/filtered-toc.txt > /tmp/toc-sessions.txt || true
           test -s /tmp/toc-sessions.txt
@@ -226,13 +239,19 @@ jobs:
             sh -c 'pg_restore -d "$URL" --use-list=/out/filtered-toc.txt --no-owner --no-privileges /out/gurukit-full.dump' > /tmp/restore.log 2>&1
           echo "pg_restore exit=$?"
           set -e
-          echo 'ralat terurus yang diterima:'
-          grep -E 'pg_restore: error' /tmp/restore.log | grep -viE 'must be owner|already exists|multiple primary keys|duplicate key value|violates foreign key constraint|permission denied for|there is no unique|column .* of relation .* does not exist|cannot drop|event trigger' | head -10 || true
-          # ralat FATAL/koneksi = gagal sebenar
+          # klasifikasi ketat: hanya kelas terurus diterima; baki = gagal
+          UNEXPECTED=$(grep -E 'pg_restore: error' /tmp/restore.log | grep -viE 'must be owner|already exists|multiple primary keys|duplicate key value violates unique constraint|violates foreign key constraint|permission denied for (function|schema|table|sequence)|there is no unique or exclusion constraint|column .* of relation .* does not exist|cannot drop .* because it is required by the database system|event trigger|does not have a valid extension|extension .* does not exist|relation "(vault|cron|net|graphql|pgsodium|storage|realtime|auth)\.|no schema has been selected' || true)
+          if [ -n "$UNEXPECTED" ]; then
+            echo 'RALAT RESTORE TIDAK DIJANGAKAN:'
+            echo "$UNEXPECTED" | head -20
+            exit 1
+          fi
           if grep -qE 'FATAL|no connection to the server|could not connect' /tmp/restore.log; then
             echo 'GAGAL: ralat sambungan/FATAL semasa restore'
             exit 1
           fi
+          ACCEPTED=$(grep -cE 'pg_restore: error' /tmp/restore.log || echo 0)
+          echo "ralat terurus diterima: $ACCEPTED" 
 
       - name: Baiki sequence (serial + identity) selepas restore
         env:
@@ -285,6 +304,38 @@ jobs:
             exit 1
           fi
           echo 'MANIFEST MATCH PENUH (semua jadual auth/public/storage)'
+          # GERBANG OBJEK: trigger/policy/function/sequence/table schema PUBLIC
+          # mesti sepadan antara dump (docker) dan drill. Objek auth (milik GoTrue)
+          # dijangka berbeza (dikecualikan dari restore) - dilapor sahaja.
+          cat > /tmp/objects.sql <<'SQL'
+          select 'OBJ|public|' || kind || '=' || cnt from (
+            select 'trigger' as kind, count(*) as cnt from information_schema.triggers where trigger_schema = 'public'
+            union all select 'policy', count(*) from pg_policies where schemaname = 'public'
+            union all select 'function', count(*) from information_schema.routines where routine_schema = 'public' and routine_type = 'FUNCTION'
+            union all select 'sequence', count(*) from information_schema.sequences where sequence_schema = 'public'
+            union all select 'table', count(*) from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE'
+          ) x
+          union all
+          select 'OBJ|auth|' || kind || '=' || cnt from (
+            select 'trigger' as kind, count(*) as cnt from information_schema.triggers where trigger_schema = 'auth'
+            union all select 'policy', count(*) from pg_policies where schemaname = 'auth'
+            union all select 'function', count(*) from information_schema.routines where routine_schema = 'auth' and routine_type = 'FUNCTION'
+          ) y;
+          SQL
+          docker cp /tmp/objects.sql drill-local:/tmp/objects.sql
+          docker exec drill-local psql -U postgres -d gurukit -v ON_ERROR_STOP=1 -At -f /tmp/objects.sql | sort > /tmp/obj-dump.txt
+          docker run --rm -i -e URL="$DRILL_DB_URL" postgres:17-alpine \
+            sh -c 'psql "$URL" -v ON_ERROR_STOP=1 -At -f /dev/stdin' < /tmp/objects.sql | sort > /tmp/obj-drill.txt
+          grep '^OBJ|public|' /tmp/obj-dump.txt > /tmp/obj-pub-dump.txt
+          grep '^OBJ|public|' /tmp/obj-drill.txt > /tmp/obj-pub-drill.txt
+          if ! diff -u /tmp/obj-pub-dump.txt /tmp/obj-pub-drill.txt; then
+            echo 'GAGAL: objek schema public (trigger/policy/function/sequence/table) tidak sepadan'
+            exit 1
+          fi
+          echo 'OBJEK PUBLIC MATCH PENUH'
+          echo 'beza objek auth (dijangka - diurus GoTrue):'
+          diff <(grep '^OBJ|auth|' /tmp/obj-dump.txt) <(grep '^OBJ|auth|' /tmp/obj-drill.txt) || true
+          docker rm -f drill-local > /dev/null 2>&1 || true
           grep -E 'auth\.users=' /tmp/m1.txt /tmp/m2.txt || true
 
       - name: Uji login canary terpulihara (TANPA mencipta/menetapkan semula)
