@@ -1,5 +1,5 @@
 name: Supabase restore drill
-true:
+on:
   workflow_dispatch:
     inputs:
       dump_file:
